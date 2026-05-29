@@ -163,27 +163,11 @@ with tab1:
         st.markdown('<div class="step-label">Paso 2 — Listado de empresas</div>', unsafe_allow_html=True)
         file_empresas = st.file_uploader("listado_empresas.xlsx", type=['xlsx'], key="empresas")
 
-    col3, col4 = st.columns(2)
-    with col3:
-        st.markdown('<div class="step-label">Paso 3 — Instituciones AFP</div>', unsafe_allow_html=True)
-        file_afp = st.file_uploader("inst_afp.xlsx", type=['xlsx'], key="afp")
-    with col4:
-        st.markdown('<div class="step-label">Paso 4 — Instituciones Salud</div>', unsafe_allow_html=True)
-        file_salud = st.file_uploader("inst_salud.xlsx", type=['xlsx'], key="salud")
-
-    col5, col6 = st.columns(2)
-    with col5:
-        st.markdown('<div class="step-label">Paso 5 — Mutuales</div>', unsafe_allow_html=True)
-        file_mutuales = st.file_uploader("inst_mutuales.xlsx", type=['xlsx'], key="mutuales")
-    with col6:
-        st.markdown('<div class="step-label">Paso 6 — Cajas de Compensación</div>', unsafe_allow_html=True)
-        file_cajas = st.file_uploader("inst_cajas.xlsx", type=['xlsx'], key="cajas")
-
     st.markdown("<br>", unsafe_allow_html=True)
 
     if st.button("GENERAR ARCHIVO DE ENTRADA", key="btn_generar"):
-        archivos = [file_conceptos, file_empresas, file_afp, file_salud, file_mutuales, file_cajas]
-        nombres = ["Lista de conceptos", "Listado de empresas", "inst_afp", "inst_salud", "inst_mutuales", "inst_cajas"]
+        archivos = [file_conceptos, file_empresas]
+        nombres = ["Lista de conceptos", "Listado de empresas"]
         faltantes = [n for f, n in zip(archivos, nombres) if f is None]
         if faltantes:
             st.markdown(f'<div class="error-box">⚠️ Faltan archivos: {", ".join(faltantes)}</div>', unsafe_allow_html=True)
@@ -191,8 +175,7 @@ with tab1:
             with st.spinner("Generando archivo..."):
                 try:
                     output = generar_archivo_entrada(
-                        file_conceptos, file_empresas,
-                        file_afp, file_salud, file_mutuales, file_cajas
+                        file_conceptos, file_empresas
                     )
                     st.markdown('<div class="success-box">✓ Archivo generado exitosamente</div>', unsafe_allow_html=True)
                     st.download_button(
@@ -221,38 +204,22 @@ with tab2:
         st.markdown('<div class="step-label">Archivo de entrada (completado por cliente)</div>', unsafe_allow_html=True)
         file_entrada = st.file_uploader("archivo_entrada_liquidaciones.xlsx", type=['xlsx'], key="entrada")
     with col2:
-        st.markdown('<div class="step-label">Parámetros mensuales</div>', unsafe_allow_html=True)
-        file_params = st.file_uploader("parametrosMensuales.xlsx", type=['xlsx'], key="params")
+        st.markdown('<div class="step-label">Listado de empleados</div>', unsafe_allow_html=True)
+        file_empleados2 = st.file_uploader("listado_empleados.xlsx", type=['xlsx'], key="empleados2")
 
     col3, col4 = st.columns(2)
     with col3:
-        st.markdown('<div class="step-label">Instituciones AFP</div>', unsafe_allow_html=True)
-        file_afp2 = st.file_uploader("inst_afp.xlsx", type=['xlsx'], key="afp2")
-    with col4:
-        st.markdown('<div class="step-label">Instituciones Salud</div>', unsafe_allow_html=True)
-        file_salud2 = st.file_uploader("inst_salud.xlsx", type=['xlsx'], key="salud2")
-
-    col5, col6 = st.columns(2)
-    with col5:
-        st.markdown('<div class="step-label">Mutuales</div>', unsafe_allow_html=True)
-        file_mutuales2 = st.file_uploader("inst_mutuales.xlsx", type=['xlsx'], key="mutuales2")
-    with col6:
-        st.markdown('<div class="step-label">Cajas de Compensación</div>', unsafe_allow_html=True)
-        file_cajas2 = st.file_uploader("inst_cajas.xlsx", type=['xlsx'], key="cajas2")
-
-    col7, col8 = st.columns(2)
-    with col7:
         st.markdown('<div class="step-label">Listado de empresas</div>', unsafe_allow_html=True)
         file_empresas2 = st.file_uploader("listado_empresas.xlsx", type=['xlsx'], key="empresas2")
-    with col8:
+    with col4:
         st.markdown('<div class="step-label">Lista de conceptos</div>', unsafe_allow_html=True)
         file_conceptos2 = st.file_uploader("Lista_de_conceptos.xlsx", type=['xlsx'], key="conceptos2")
 
     st.markdown("<br>", unsafe_allow_html=True)
 
     if st.button("PROCESAR LIQUIDACIONES", key="btn_procesar"):
-        archivos = [file_entrada, file_params, file_afp2, file_salud2, file_mutuales2, file_cajas2, file_empresas2, file_conceptos2]
-        nombres = ["Archivo entrada", "Parámetros mensuales", "inst_afp", "inst_salud", "inst_mutuales", "inst_cajas", "Listado empresas", "Lista de conceptos"]
+        archivos = [file_entrada, file_empleados2, file_empresas2, file_conceptos2]
+        nombres = ["Archivo entrada", "Listado empleados", "Listado empresas", "Lista de conceptos"]
         faltantes = [n for f, n in zip(archivos, nombres) if f is None]
         if faltantes:
             st.markdown(f'<div class="error-box">⚠️ Faltan archivos: {", ".join(faltantes)}</div>', unsafe_allow_html=True)
@@ -260,8 +227,7 @@ with tab2:
             with st.spinner("Procesando liquidaciones..."):
                 try:
                     output, n_filas, n_trabajadores = procesar_liquidaciones(
-                        file_entrada, file_params,
-                        file_afp2, file_salud2, file_mutuales2, file_cajas2, file_empresas2,
+                        file_entrada, file_empleados2, file_empresas2,
                         file_conceptos2
                     )
                     st.markdown(f'''

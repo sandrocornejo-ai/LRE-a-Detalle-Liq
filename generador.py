@@ -6,14 +6,27 @@ from openpyxl.utils import get_column_letter
 from io import BytesIO
 
 
-def generar_archivo_entrada(file_conceptos, file_empresas, file_afp, file_salud, file_mutuales, file_cajas):
+def generar_archivo_entrada(file_conceptos, file_empresas):
+    import streamlit as st
+    import requests as req
+
+    SUPABASE_URL = st.secrets['SUPABASE_URL']
+    SUPABASE_KEY = st.secrets['SUPABASE_KEY']
+    hdrs = {'apikey': SUPABASE_KEY, 'Authorization': f'Bearer {SUPABASE_KEY}'}
+
+    def sb_list(table, col):
+        r = req.get(f'{SUPABASE_URL}/rest/v1/{table}?select={col}', headers=hdrs)
+        return [row[col] for row in r.json() if row.get(col)]
+
     # ── Leer archivos ─────────────────────────────────────────────────────────
     conceptos_df = pd.read_excel(file_conceptos, header=1)
     empresas_df  = pd.read_excel(file_empresas, header=1)
-    afp_df       = pd.read_excel(file_afp)
-    salud_df     = pd.read_excel(file_salud)
-    mutuales_df  = pd.read_excel(file_mutuales)
-    cajas_df     = pd.read_excel(file_cajas)
+
+    # ── Leer instituciones desde Supabase ─────────────────────────────────────
+    nombres_afp    = sb_list('inst_afp', 'nombre_afp')
+    nombres_salud  = sb_list('inst_salud', 'nombre_inst')
+    nombres_mutual = sb_list('inst_mutuales', 'nombre_institucion')
+    nombres_caja   = sb_list('inst_cajas', 'nombre_institucion')
 
     # ── Extraer listas ────────────────────────────────────────────────────────
     hab_afecto = conceptos_df[conceptos_df['Tipo']=='Haber afecto']['Nombre'].tolist()
@@ -21,10 +34,6 @@ def generar_archivo_entrada(file_conceptos, file_empresas, file_afp, file_salud,
     descuentos = conceptos_df[conceptos_df['Tipo']=='Descuento']['Nombre'].tolist()
 
     nombres_empresa = empresas_df['Nombre'].dropna().tolist()
-    nombres_afp     = afp_df['nombre_afp'].dropna().tolist()
-    nombres_salud   = salud_df['nombre_inst'].dropna().tolist()
-    nombres_mutual  = mutuales_df['Nombre Institución'].dropna().tolist()
-    nombres_caja    = cajas_df['Nombre Institución'].dropna().tolist()
 
     # ── Columnas fijas ────────────────────────────────────────────────────────
     FIXED = ['mes_Proceso', 'rut_trabajador', 'num_contrato', 'nombre_emp', 'id_empresa']
