@@ -277,16 +277,34 @@ with tab2:
         else:
             with st.spinner("Procesando liquidaciones..."):
                 try:
-                    output, n_filas, n_trabajadores = procesar_liquidaciones(
+                    output, n_filas, n_trabajadores, sin_empleado, log_bytes = procesar_liquidaciones(
                         file_entrada, file_empleados2, file_empresas2, file_conceptos2
                     )
-                    st.markdown(f'''
-                    <div class="success-box">
-                        ✓ Proceso completado<br>
-                        &nbsp;&nbsp;· {n_trabajadores} trabajadores procesados<br>
-                        &nbsp;&nbsp;· {n_filas} filas generadas
-                    </div>
-                    ''', unsafe_allow_html=True)
+
+                    if not sin_empleado:
+                        st.markdown(f'''
+                        <div class="success-box">
+                            ✓ Todos los datos del archivo de entrada se procesaron exitosamente<br>
+                            &nbsp;&nbsp;· {n_trabajadores} trabajadores procesados<br>
+                            &nbsp;&nbsp;· {n_filas} filas generadas
+                        </div>
+                        ''', unsafe_allow_html=True)
+                    else:
+                        st.markdown(f'''
+                        <div class="info-box">
+                            ⚠️ Se procesaron los datos, pero se detectaron {len(sin_empleado)} registro(s) del archivo de entrada
+                            que no están en la lista de empleados.<br>
+                            &nbsp;&nbsp;· {n_trabajadores} trabajadores procesados<br>
+                            &nbsp;&nbsp;· {n_filas} filas generadas
+                        </div>
+                        ''', unsafe_allow_html=True)
+                        st.download_button(
+                            label="⬇ DESCARGAR LOG DE RUTs NO ENCONTRADOS",
+                            data=log_bytes,
+                            file_name="log_ruts_no_encontrados.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                        )
+
                     st.download_button(
                         label="⬇ DESCARGAR LIQUIDACIONES DETALLADAS",
                         data=output,

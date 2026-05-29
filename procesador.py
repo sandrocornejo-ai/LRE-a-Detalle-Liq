@@ -29,6 +29,11 @@ def safe_float(val):
         return 0.0
 
 
+def normalizar_rut(rut):
+    """Normaliza RUT a formato sin puntos, con guión. Ej: '17.531.760-0' → '17531760-0'"""
+    return str(rut).strip().replace('.', '').upper()
+
+
 def procesar_liquidaciones(file_entrada, file_empleados, file_empresas, file_conceptos=None):
     # ── Leer archivos de referencia ───────────────────────────────────────────
     import streamlit as st
@@ -49,12 +54,51 @@ def procesar_liquidaciones(file_entrada, file_empleados, file_empresas, file_con
     params_df   = sb_df('parametros_mensuales').set_index('mes_proc')
     params_df.index = params_df.index.astype(str)
 
-    empresas_df = pd.read_excel(file_empresas, header=1).set_index('Nombre')
-    entrada_df  = pd.read_excel(file_entrada)
+    empresas_df  = pd.read_excel(file_empresas, header=1).set_index('Nombre')
+    entrada_df   = pd.read_excel(file_entrada)
+    empleados_df = pd.read_excel(file_empleados, header=1)
+
+    # ── Normalizar RUTs del listado de empleados y crear índice sueldo base ───
+    empleados_df['_rut_norm'] = empleados_df['Rut'].apply(normalizar_rut)
+    ruts_empleados  = set(empleados_df['_rut_norm'])
+    sueldo_base_map = empleados_df.set_index('_rut_norm')['Sueldo Base'].apply(safe_float).to_dict()
+
+    # ── Validar que todos los RUTs del archivo de entrada estén en empleados ──
+    registros_sin_empleado = []
+    for _, row in entrada_df.iterrows():
+        rut_entrada = normalizar_rut(row.get('rut_trabajador', ''))
+        if rut_entrada not in ruts_empleados:
+            registros_sin_empleado.append({
+                'Rut': rut_entrada,
+                'Número de contrato': row.get('num_contrato', '')
+            })
+
+    # ── Generar log si hay RUTs no encontrados ────────────────────────────────
+    log_bytes = None
+    if registros_sin_empleado:
+        df_log = pd.DataFrame(registros_sin_empleado)
+        buf_log = BytesIO()
+        with pd.ExcelWriter(buf_log, engine='openpyxl') as writer:
+            df_log.to_excel(writer, index=False, sheet_name='RUTs no encontrados')
+            ws = writer.sheets['RUTs no encontrados']
+            from openpyxl.styles import Font, PatternFill, Alignment
+            hfont  = Font(name='Arial', bold=True, color='FFFFFF', size=9)
+            hfill  = PatternFill('solid', start_color='C0392B')
+            halign = Alignment(horizontal='center', vertical='center')
+            for cell in ws[1]:
+                cell.font      = hfont
+                cell.fill      = hfill
+                cell.alignment = halign
+            ws.row_dimensions[1].height = 25
+            ws.freeze_panes = 'A2'
+            for col in ws.columns:
+                ws.column_dimensions[col[0].column_letter].width = 22
+        buf_log.seek(0)
+        log_bytes = buf_log.read()
 
     # ── Mapa Nombre → Concepto(ID) y Nombre → Tipo desde lista de conceptos ──
-    nombre_a_id   = {}  # Nombre → Concepto (ID)
-    nombre_a_tipo = {}  # Nombre → Tipo
+    nombre_a_id   = {}
+    nombre_a_tipo = {}
     hab_exento_nombres = set()
     hab_afecto_nombres = set()
 
@@ -107,7 +151,6 @@ def procesar_liquidaciones(file_entrada, file_empleados, file_empresas, file_con
         'Seguro de Cesantia Solidario', 'CESANTIA SOL Reliq meses anteriores',
     }
 
-    # Índice donde empiezan los descuentos legales
     cotizacion_afp_idx = concepto_cols.index('Cotizacion AFP') if 'Cotizacion AFP' in concepto_cols else len(concepto_cols)
     haberes_cols = concepto_cols[:cotizacion_afp_idx]
 
@@ -124,17 +167,14 @@ def procesar_liquidaciones(file_entrada, file_empleados, file_empresas, file_con
         id_mutual_val = str(row.get('id_mutual', ''))
         id_ccaf_val   = str(row.get('id_ccaf', ''))
 
-        # Parámetros del mes
         params_row = params_df.loc[mes_proc] if mes_proc in params_df.index else None
         tope_afp   = safe_float(params_row['topeImp_pesos_afp']) if params_row is not None else 0
         tope_ces   = safe_float(params_row['topeCes_pesos'])     if params_row is not None else 0
         tope_salud = safe_float(params_row['topeSalud_pesos'])   if params_row is not None else 0
 
-        # Totales haberes
         total_hab_afecto = sum(safe_float(row.get(c, 0)) for c in haberes_cols if c in hab_afecto_nombres or c not in hab_exento_nombres)
         total_hab_exento = sum(safe_float(row.get(c, 0)) for c in haberes_cols if c in hab_exento_nombres)
 
-        # Valores clave
         val_afp            = safe_float(row.get('Cotizacion AFP', 0))
         val_ces_empleado   = safe_float(row.get('Seguro de Cesantia', 0))
         val_trab_pesa_empl = safe_float(row.get('Trabajo Pesado Empleado', 0))
@@ -142,13 +182,11 @@ def procesar_liquidaciones(file_entrada, file_empleados, file_empresas, file_con
         val_sueldo_base    = safe_float(row.get('Sueldo Base', 0))
         val_licencia       = safe_float(row.get('licenciaDias', 0)) if 'licenciaDias' in row.index else 0
 
-        # Días
         dias_lic   = val_licencia if val_licencia > 0 else 0
         total_dias = dias_mes(mes_proc)
         dias_trab  = total_dias - dias_lic
         monto_init = (val_sueldo_base / dias_trab * 30) if dias_trab > 0 else 0
 
-        # Helpers lookup
         def lookup_param(col):
             if params_row is not None and col in params_df.columns:
                 return safe_float(params_row[col])
@@ -166,19 +204,14 @@ def procesar_liquidaciones(file_entrada, file_empleados, file_empresas, file_con
         def lookup_ccaf_id():
             return cajas_df.loc[id_ccaf_val, 'id_institucion'] if id_ccaf_val in cajas_df.index else ''
 
-        # ── Por cada concepto ─────────────────────────────────────────────────
         for concepto_nombre in concepto_cols:
             monto = safe_float(row.get(concepto_nombre, 0))
             if monto <= 0:
                 continue
 
-            # Col 4 — Id del concepto (usar ID, no Nombre)
-            id_concepto = nombre_a_id.get(concepto_nombre, concepto_nombre)
-
-            # Col 5 — Monto del concepto
+            id_concepto    = nombre_a_id.get(concepto_nombre, concepto_nombre)
             monto_concepto = monto
 
-            # Col 6 — Afecto
             if concepto_nombre in {'totalesEmpl', 'Sueldo liquido'}:
                 afecto = total_hab_afecto + total_hab_exento
             elif concepto_nombre in CONCEPTOS_AFP_AFECTO:
@@ -192,7 +225,6 @@ def procesar_liquidaciones(file_entrada, file_empleados, file_empresas, file_con
             else:
                 afecto = 0
 
-            # Col 7 — Id de institución
             if concepto_nombre in CONCEPTOS_AFP_INST:
                 id_inst = lookup_afp_id()
             elif concepto_nombre in CONCEPTOS_SALUD_INST:
@@ -204,7 +236,6 @@ def procesar_liquidaciones(file_entrada, file_empleados, file_empresas, file_con
             else:
                 id_inst = ''
 
-            # Col 8 — Cotización de jubilación
             if concepto_nombre == 'Cotizacion AFP':
                 cot_jub = safe_float(afp_df.loc[id_afp_val, 'cot_afp']) if id_afp_val in afp_df.index else ''
             elif concepto_nombre == 'Cotizacion SALUD':
@@ -222,19 +253,14 @@ def procesar_liquidaciones(file_entrada, file_empleados, file_empresas, file_con
             else:
                 cot_jub = ''
 
-            # Col 9 — Días de licencias
-            dias_licencias = monto if concepto_nombre == 'licenciaDias' and monto > 0 else 0
-
-            # Col 10 — Días trabajados
+            dias_licencias  = monto if concepto_nombre == 'licenciaDias' and monto > 0 else 0
             dias_trabajados = dias_trab
 
-            # Col 13 — Total rebajas LLSS
             if concepto_nombre == 'Impuesto mensual':
                 total_rebajas = val_afp + val_ces_empleado + val_trab_pesa_empl + min(val_isapre, tope_salud)
             else:
                 total_rebajas = 0
 
-            # Col 14 — Rentas no gravadas
             if concepto_nombre == 'Impuesto mensual':
                 rentas_no_grav = total_hab_exento
             else:
@@ -258,13 +284,13 @@ def procesar_liquidaciones(file_entrada, file_empleados, file_empresas, file_con
                 'Rebaja por zona extrema':   0,
                 'Jornada':                   'C',
                 'Días de vacaciones':        '',
-                'Monto Init':                round(monto_init, 2),
+                'Monto Init':                sueldo_base_map.get(normalizar_rut(rut), 0),
                 'Fase':                      1,
             })
 
     df_salida = pd.DataFrame(filas_salida)
     n_trabajadores = len(entrada_df)
-    n_filas = len(df_salida)
+    n_filas        = len(df_salida)
 
     buf = BytesIO()
     with pd.ExcelWriter(buf, engine='openpyxl') as writer:
@@ -275,8 +301,8 @@ def procesar_liquidaciones(file_entrada, file_empleados, file_empresas, file_con
         hfill  = PatternFill('solid', start_color='1a2744')
         halign = Alignment(horizontal='center', vertical='center', wrap_text=True)
         for cell in ws[1]:
-            cell.font  = hfont
-            cell.fill  = hfill
+            cell.font      = hfont
+            cell.fill      = hfill
             cell.alignment = halign
         ws.row_dimensions[1].height = 30
         ws.freeze_panes = 'A2'
@@ -284,4 +310,4 @@ def procesar_liquidaciones(file_entrada, file_empleados, file_empresas, file_con
             ws.column_dimensions[col[0].column_letter].width = 18
 
     buf.seek(0)
-    return buf.read(), n_filas, n_trabajadores
+    return buf.read(), n_filas, n_trabajadores, registros_sin_empleado, log_bytes
