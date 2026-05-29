@@ -182,10 +182,10 @@ def procesar_liquidaciones(file_entrada, file_empleados, file_empresas, file_con
         val_sueldo_base    = safe_float(row.get('Sueldo Base', 0))
         val_licencia       = safe_float(row.get('licenciaDias', 0)) if 'licenciaDias' in row.index else 0
 
-        dias_lic   = val_licencia if val_licencia > 0 else 0
-        total_dias = dias_mes(mes_proc)
-        dias_trab  = total_dias - dias_lic
-        monto_init = (val_sueldo_base / dias_trab * 30) if dias_trab > 0 else 0
+        dias_lic        = val_licencia if val_licencia > 0 else 0
+        total_dias      = dias_mes(mes_proc)
+        dias_trab       = 30 if dias_lic == 0 else total_dias - dias_lic
+        monto_init      = (val_sueldo_base / dias_trab * 30) if dias_trab > 0 else 0
 
         def lookup_param(col):
             if params_row is not None and col in params_df.columns:
