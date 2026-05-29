@@ -56,12 +56,15 @@ def procesar_liquidaciones(file_entrada, file_empleados, file_empresas, file_con
 
     empresas_df  = pd.read_excel(file_empresas, header=1).set_index('Nombre')
     entrada_df   = pd.read_excel(file_entrada)
-    empleados_df = pd.read_excel(file_empleados, header=1)
+    empleados_df  = pd.read_excel(file_empleados, header=1)
 
-    # ── Normalizar RUTs del listado de empleados y crear índice sueldo base ───
+    # ── Normalizar RUTs del listado de empleados y crear índices ─────────────
     empleados_df['_rut_norm'] = empleados_df['Rut'].apply(normalizar_rut)
+    emp_idx         = empleados_df.set_index('_rut_norm')
     ruts_empleados  = set(empleados_df['_rut_norm'])
-    sueldo_base_map = empleados_df.set_index('_rut_norm')['Sueldo Base'].apply(safe_float).to_dict()
+    sueldo_base_map = emp_idx['Sueldo Base'].apply(safe_float).to_dict()
+    tipo_contr_map  = emp_idx['Tipo contr.'].astype(str).to_dict()
+    fecha_ces_map   = emp_idx['Fecha inc. Seguro Cesa.'].to_dict()
 
     # ── Validar que todos los RUTs del archivo de entrada estén en empleados ──
     registros_sin_empleado = []
@@ -99,8 +102,10 @@ def procesar_liquidaciones(file_entrada, file_empleados, file_empresas, file_con
     # ── Mapa Nombre → Concepto(ID) y Nombre → Tipo desde lista de conceptos ──
     nombre_a_id   = {}
     nombre_a_tipo = {}
-    hab_exento_nombres = set()
-    hab_afecto_nombres = set()
+    hab_exento_nombres   = set()
+    hab_afecto_nombres   = set()
+    desc_legal_nombres   = set()
+    desc_nombres         = set()
 
     if file_conceptos is not None:
         conc_df = pd.read_excel(file_conceptos, header=1)
@@ -111,6 +116,10 @@ def procesar_liquidaciones(file_entrada, file_empleados, file_empresas, file_con
                 hab_exento_nombres.add(str(r['Nombre']))
             if r['Tipo'] == 'Haber afecto':
                 hab_afecto_nombres.add(str(r['Nombre']))
+            if r['Tipo'] == 'Descuento legal':
+                desc_legal_nombres.add(str(r['Nombre']))
+            if r['Tipo'] == 'Descuento':
+                desc_nombres.add(str(r['Nombre']))
 
     # ── Columnas fijas del archivo de entrada ─────────────────────────────────
     COLS_FIJAS = {'mes_Proceso', 'rut_trabajador', 'num_contrato', 'nombre_emp',
@@ -154,7 +163,9 @@ def procesar_liquidaciones(file_entrada, file_empleados, file_empresas, file_con
     cotizacion_afp_idx = concepto_cols.index('Cotizacion AFP') if 'Cotizacion AFP' in concepto_cols else len(concepto_cols)
     haberes_cols = concepto_cols[:cotizacion_afp_idx]
 
-    filas_salida = []
+    filas_salida        = []
+    registros_descuadre = []
+    registros_ces       = []
 
     for _, row in entrada_df.iterrows():
         mes_proc      = str(row.get('mes_Proceso', ''))
@@ -166,6 +177,8 @@ def procesar_liquidaciones(file_entrada, file_empleados, file_empresas, file_con
         id_salud_val  = str(row.get('id_salud', ''))
         id_mutual_val = str(row.get('id_mutual', ''))
         id_ccaf_val   = str(row.get('id_ccaf', ''))
+
+        rut_norm      = normalizar_rut(rut)
 
         params_row = params_df.loc[mes_proc] if mes_proc in params_df.index else None
         tope_afp   = safe_float(params_row['tope_imp_pesos_afp']) if params_row is not None else 0
@@ -179,13 +192,13 @@ def procesar_liquidaciones(file_entrada, file_empleados, file_empresas, file_con
         val_ces_empleado   = safe_float(row.get('Seguro de Cesantia', 0))
         val_trab_pesa_empl = safe_float(row.get('Trabajo Pesado Empleado', 0))
         val_isapre         = safe_float(row.get('Cotizacion SALUD', 0))
-        val_sueldo_base    = safe_float(row.get('Sueldo Base', 0))
+        val_sueldo_base    = safe_float(row.get('sueldoBase', 0))
         val_licencia       = safe_float(row.get('licenciaDias', 0)) if 'licenciaDias' in row.index else 0
 
         dias_lic        = val_licencia if val_licencia > 0 else 0
         total_dias      = dias_mes(mes_proc)
         dias_trab       = 30 if dias_lic == 0 else total_dias - dias_lic
-        monto_init      = (val_sueldo_base / dias_trab * 30) if dias_trab > 0 else 0
+        monto_init      = round((val_sueldo_base / dias_trab) * 30, 2) if dias_trab > 0 else 0
 
         def lookup_param(col):
             if params_row is not None and col in params_df.columns:
@@ -203,6 +216,53 @@ def procesar_liquidaciones(file_entrada, file_empleados, file_empresas, file_con
 
         def lookup_ccaf_id():
             return cajas_df.loc[id_ccaf_val, 'id_institucion'] if id_ccaf_val in cajas_df.index else ''
+
+        # ── Validación de líquido ─────────────────────────────────────────────
+        total_hab      = sum(safe_float(row.get(c, 0)) for c in concepto_cols if c in hab_afecto_nombres or c in hab_exento_nombres)
+        total_desc     = sum(safe_float(row.get(c, 0)) for c in concepto_cols if c in desc_legal_nombres or c in desc_nombres)
+        liquido_calc   = total_hab - total_desc
+        liquido_ingres = safe_float(row.get('totalesEmpl', 0))
+        diferencia     = liquido_ingres - liquido_calc
+
+        if diferencia != 0:
+            registros_descuadre.append({
+                'Rut':               rut,
+                'Número de contrato': num_cont,
+                'Líquido calculado': liquido_calc,
+                'Líquido ingresado': liquido_ingres,
+                'Diferencia':        diferencia,
+            })
+            continue
+
+        # ── Validación seguro de cesantía ─────────────────────────────────────
+        val_ces         = safe_float(row.get('Seguro de Cesantia', 0))
+        tipo_contr      = tipo_contr_map.get(rut_norm, '')
+        fecha_ces_raw   = fecha_ces_map.get(rut_norm, None)
+
+        # Validación 1: Tipo contrato I debe tener valor en Seguro de Cesantia
+        if tipo_contr == 'I' and val_ces == 0:
+            registros_ces.append({
+                'Rut':                rut,
+                'Número de contrato': num_cont,
+                'Validación fallida': 'Contrato tipo I sin valor en Seguro de Cesantia',
+            })
+
+        # Validación 2: Más de 11 años desde Fecha inc. Seguro Cesa. → no debe venir valor
+        if fecha_ces_raw is not None and val_ces > 0:
+            try:
+                if pd.notna(fecha_ces_raw):
+                    fecha_ces_dt = pd.to_datetime(fecha_ces_raw)
+                    anio_proc, mes_proc_num = int(mes_proc[:4]), int(mes_proc[5:7])
+                    fecha_proc_dt = pd.Timestamp(year=anio_proc, month=mes_proc_num, day=1)
+                    años_diff = (fecha_proc_dt - fecha_ces_dt).days / 365.25
+                    if años_diff > 11:
+                        registros_ces.append({
+                            'Rut':                rut,
+                            'Número de contrato': num_cont,
+                            'Validación fallida': f'Más de 11 años en Seguro Cesantía ({años_diff:.1f} años) — no debería venir valor',
+                        })
+            except Exception:
+                pass
 
         for concepto_nombre in concepto_cols:
             monto = safe_float(row.get(concepto_nombre, 0))
@@ -284,7 +344,7 @@ def procesar_liquidaciones(file_entrada, file_empleados, file_empresas, file_con
                 'Rebaja por zona extrema':   0,
                 'Jornada':                   'C',
                 'Días de vacaciones':        '',
-                'Monto Init':                sueldo_base_map.get(normalizar_rut(rut), 0),
+                'Monto Init':                monto_init,
                 'Fase':                      1,
             })
 
@@ -310,4 +370,45 @@ def procesar_liquidaciones(file_entrada, file_empleados, file_empresas, file_con
             ws.column_dimensions[col[0].column_letter].width = 18
 
     buf.seek(0)
-    return buf.read(), n_filas, n_trabajadores, registros_sin_empleado, log_bytes
+
+    # ── Log de descuadre de líquido ───────────────────────────────────────────
+    log_descuadre_bytes = None
+    if registros_descuadre:
+        df_desc = pd.DataFrame(registros_descuadre)
+        buf_desc = BytesIO()
+        with pd.ExcelWriter(buf_desc, engine='openpyxl') as writer:
+            df_desc.to_excel(writer, index=False, sheet_name='Descuadre líquido')
+            ws2 = writer.sheets['Descuadre líquido']
+            hfill2 = PatternFill('solid', start_color='C0392B')
+            for cell in ws2[1]:
+                cell.font      = Font(name='Arial', bold=True, color='FFFFFF', size=9)
+                cell.fill      = hfill2
+                cell.alignment = Alignment(horizontal='center', vertical='center')
+            ws2.row_dimensions[1].height = 25
+            ws2.freeze_panes = 'A2'
+            for col in ws2.columns:
+                ws2.column_dimensions[col[0].column_letter].width = 22
+        buf_desc.seek(0)
+        log_descuadre_bytes = buf_desc.read()
+
+    # ── Log de validación seguro de cesantía ──────────────────────────────────
+    log_ces_bytes = None
+    if registros_ces:
+        df_ces = pd.DataFrame(registros_ces)
+        buf_ces = BytesIO()
+        with pd.ExcelWriter(buf_ces, engine='openpyxl') as writer:
+            df_ces.to_excel(writer, index=False, sheet_name='Validación cesantía')
+            ws3 = writer.sheets['Validación cesantía']
+            hfill3 = PatternFill('solid', start_color='E67E22')
+            for cell in ws3[1]:
+                cell.font      = Font(name='Arial', bold=True, color='FFFFFF', size=9)
+                cell.fill      = hfill3
+                cell.alignment = Alignment(horizontal='center', vertical='center')
+            ws3.row_dimensions[1].height = 25
+            ws3.freeze_panes = 'A2'
+            for col in ws3.columns:
+                ws3.column_dimensions[col[0].column_letter].width = 28
+        buf_ces.seek(0)
+        log_ces_bytes = buf_ces.read()
+
+    return buf.read(), n_filas, n_trabajadores, registros_sin_empleado, log_bytes, registros_descuadre, log_descuadre_bytes, registros_ces, log_ces_bytes

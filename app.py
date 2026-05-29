@@ -277,7 +277,7 @@ with tab2:
         else:
             with st.spinner("Procesando liquidaciones..."):
                 try:
-                    output, n_filas, n_trabajadores, sin_empleado, log_bytes, descuadre, log_descuadre_bytes = procesar_liquidaciones(
+                    output, n_filas, n_trabajadores, sin_empleado, log_bytes, descuadre, log_descuadre_bytes, ces_invalidos, log_ces_bytes = procesar_liquidaciones(
                         file_entrada, file_empleados2, file_empresas2, file_conceptos2
                     )
 
@@ -315,6 +315,19 @@ with tab2:
                             label="⬇ DESCARGAR LOG DE DESCUADRE DE LÍQUIDO",
                             data=log_descuadre_bytes,
                             file_name="log_descuadre_liquido.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                        )
+
+                    if ces_invalidos:
+                        st.markdown(f'''
+                        <div class="info-box">
+                            ⚠️ Se detectaron {len(ces_invalidos)} registro(s) con inconsistencias en el Seguro de Cesantía.
+                        </div>
+                        ''', unsafe_allow_html=True)
+                        st.download_button(
+                            label="⬇ DESCARGAR LOG DE VALIDACIÓN CESANTÍA",
+                            data=log_ces_bytes,
+                            file_name="log_validacion_cesantia.xlsx",
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                         )
 
