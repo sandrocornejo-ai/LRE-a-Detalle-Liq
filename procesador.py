@@ -238,6 +238,23 @@ def procesar_liquidaciones(file_entrada, file_empleados, file_empresas, file_con
         tope_ces   = safe_float(params_row['tope_ces_pesos'])     if params_row is not None else 0
         tope_salud = safe_float(params_row['tope_salud_pesos'])   if params_row is not None else 0
 
+        def lookup_param(col):
+            if params_row is not None and col in params_df.columns:
+                return safe_float(params_row[col])
+            return 0
+
+        def lookup_afp_id():
+            return afp_df.loc[id_afp_val, 'id_afp'] if id_afp_val in afp_df.index else ''
+
+        def lookup_salud_id():
+            return salud_df.loc[id_salud_val, 'id_inst'] if id_salud_val in salud_df.index else ''
+
+        def lookup_mutual_id():
+            return mutuales_df.loc[id_mutual_val, 'id_institucion'] if id_mutual_val in mutuales_df.index else ''
+
+        def lookup_ccaf_id():
+            return cajas_df.loc[id_ccaf_val, 'id_institucion'] if id_ccaf_val in cajas_df.index else ''
+
         total_hab_afecto = sum(safe_float(row.get(c, 0)) for c in haberes_cols if c in hab_afecto_nombres or c not in hab_exento_nombres)
         total_hab_exento = sum(safe_float(row.get(c, 0)) for c in haberes_cols if c in hab_exento_nombres)
         imponible        = min(total_hab_afecto, tope_afp)
@@ -334,24 +351,6 @@ def procesar_liquidaciones(file_entrada, file_empleados, file_empresas, file_con
         row['cesAporteSol']                      = val_ces_sol
         row['aporteFAPPCEV']                     = val_fapp
 
-        def lookup_param(col):
-            if params_row is not None and col in params_df.columns:
-                return safe_float(params_row[col])
-            return 0
-
-        def lookup_afp_id():
-            return afp_df.loc[id_afp_val, 'id_afp'] if id_afp_val in afp_df.index else ''
-
-        def lookup_salud_id():
-            return salud_df.loc[id_salud_val, 'id_inst'] if id_salud_val in salud_df.index else ''
-
-        def lookup_mutual_id():
-            return mutuales_df.loc[id_mutual_val, 'id_institucion'] if id_mutual_val in mutuales_df.index else ''
-
-        def lookup_ccaf_id():
-            return cajas_df.loc[id_ccaf_val, 'id_institucion'] if id_ccaf_val in cajas_df.index else ''
-
-        # ── Validación de líquido ─────────────────────────────────────────────
         total_hab      = sum(safe_float(row.get(c, 0)) for c in concepto_cols if c in hab_afecto_nombres or c in hab_exento_nombres)
         total_desc     = sum(safe_float(row.get(c, 0)) for c in concepto_cols if c in desc_legal_nombres or c in desc_nombres)
         liquido_calc   = total_hab - total_desc
