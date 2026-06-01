@@ -212,8 +212,8 @@ with tab1:
 
     with col1:
         st.markdown('<div class="step-label">Paso 1 — Lista de conceptos</div>', unsafe_allow_html=True)
-        file_conceptos = st.file_uploader("Lista_de_conceptos.xlsx", type=['xlsx'], key="conceptos")
-        validar_nombre_archivo(file_conceptos, "Lista_de_conceptos.xlsx")
+        file_conceptos = st.file_uploader("Lista de conceptos.xlsx", type=['xlsx'], key="conceptos")
+        validar_nombre_archivo(file_conceptos, "Lista de conceptos.xlsx")
 
     with col2:
         st.markdown('<div class="step-label">Paso 2 — Listado de empresas</div>', unsafe_allow_html=True)
@@ -227,7 +227,7 @@ with tab1:
         nombres  = ["Lista de conceptos", "Listado de empresas"]
         faltantes = [n for f, n in zip(archivos, nombres) if f is None]
         nombres_invalidos = (
-            (file_conceptos and file_conceptos.name != "Lista_de_conceptos.xlsx") or
+            (file_conceptos and file_conceptos.name != "Lista de conceptos.xlsx") or
             (file_empresas  and file_empresas.name  != "listado_empresas.xlsx")
         )
 
@@ -282,8 +282,8 @@ with tab2:
 
     with col4:
         st.markdown('<div class="step-label">Lista de conceptos</div>', unsafe_allow_html=True)
-        file_conceptos2 = st.file_uploader("Lista_de_conceptos.xlsx", type=['xlsx'], key="conceptos2")
-        validar_nombre_archivo(file_conceptos2, "Lista_de_conceptos.xlsx")
+        file_conceptos2 = st.file_uploader("Lista de conceptos.xlsx", type=['xlsx'], key="conceptos2")
+        validar_nombre_archivo(file_conceptos2, "Lista de conceptos.xlsx")
 
     st.markdown("<br>", unsafe_allow_html=True)
 
@@ -295,7 +295,7 @@ with tab2:
             file_entrada    and file_entrada.name    != "archivo_entrada_liquidaciones.xlsx",
             file_empleados2 and file_empleados2.name != "listado_empleados.xlsx",
             file_empresas2  and file_empresas2.name  != "listado_empresas.xlsx",
-            file_conceptos2 and file_conceptos2.name != "Lista_de_conceptos.xlsx",
+            file_conceptos2 and file_conceptos2.name != "Lista de conceptos.xlsx",
         ])
 
         if faltantes:
