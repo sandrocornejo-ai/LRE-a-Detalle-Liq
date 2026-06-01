@@ -157,8 +157,34 @@ def generar_archivo_entrada(file_conceptos, file_empresas):
     add_dv(ws, DataValidation(type="list", formula1=f"lst_meses!$A$1:$A${len(meses)}", allow_blank=True,
                                showErrorMessage=True, error="Seleccione período válido (ej: 2024-01)", errorTitle="Período inválido"), 'mes_Proceso')
 
-    add_dv(ws, DataValidation(type="textLength", operator="between", formula1="9", formula2="10",
-                               allow_blank=True, showErrorMessage=True, error="RUT debe tener 9-10 caracteres (ej: 12345678-9)", errorTitle="RUT inválido"), 'rut_trabajador')
+    # Validación RUT: formato XXXXXXXX-X y dígito verificador
+    rut_col = cl('rut_trabajador')
+    rut_formula = (
+        f'=AND('
+        f'LEN({rut_col}2)>=9,'
+        f'LEN({rut_col}2)<=10,'
+        f'MID({rut_col}2,LEN({rut_col}2)-1,1)="-",'
+        f'ISNUMBER(VALUE(LEFT({rut_col}2,LEN({rut_col}2)-2))),'
+        f'OR(RIGHT({rut_col}2,1)="K",'
+        f'ISNUMBER(VALUE(RIGHT({rut_col}2,1)))),'
+        f'MOD(11-MOD('
+        f'VALUE(MID({rut_col}2,1,1))*3+'
+        f'IF(LEN({rut_col}2)-2>=2,VALUE(MID({rut_col}2,2,1))*2,0)+'
+        f'IF(LEN({rut_col}2)-2>=3,VALUE(MID({rut_col}2,3,1))*7,0)+'
+        f'IF(LEN({rut_col}2)-2>=4,VALUE(MID({rut_col}2,4,1))*6,0)+'
+        f'IF(LEN({rut_col}2)-2>=5,VALUE(MID({rut_col}2,5,1))*5,0)+'
+        f'IF(LEN({rut_col}2)-2>=6,VALUE(MID({rut_col}2,6,1))*4,0)+'
+        f'IF(LEN({rut_col}2)-2>=7,VALUE(MID({rut_col}2,7,1))*3,0)+'
+        f'IF(LEN({rut_col}2)-2>=8,VALUE(MID({rut_col}2,8,1))*2,0),'
+        f'11),11)=IF(RIGHT({rut_col}2,1)="K",11-10,VALUE(RIGHT({rut_col}2,1))))'
+    )
+    dv_rut = DataValidation(
+        type="custom", formula1=rut_formula, allow_blank=True,
+        showErrorMessage=True,
+        error="RUT inválido. Verifique el formato (ej: 12345678-9) y el dígito verificador.",
+        errorTitle="RUT inválido"
+    )
+    add_dv(ws, dv_rut, 'rut_trabajador')
 
     add_dv(ws, DataValidation(type="whole", operator="greaterThan", formula1="0",
                                allow_blank=True, showErrorMessage=True, error="Debe ser número entero mayor que 0", errorTitle="Contrato inválido"), 'num_contrato')

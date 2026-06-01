@@ -277,9 +277,22 @@ with tab2:
         else:
             with st.spinner("Procesando liquidaciones..."):
                 try:
-                    output, n_filas, n_trabajadores, sin_empleado, log_bytes, descuadre, log_descuadre_bytes, ces_invalidos, log_ces_bytes = procesar_liquidaciones(
+                    output, n_filas, n_trabajadores, sin_empleado, log_bytes, descuadre, log_descuadre_bytes, ces_invalidos, log_ces_bytes, ruts_invalidos, log_rut_invalido_bytes = procesar_liquidaciones(
                         file_entrada, file_empleados2, file_empresas2, file_conceptos2
                     )
+
+                    if ruts_invalidos:
+                        st.markdown(f'''
+                        <div class="error-box">
+                            ⛔ Se detectaron {len(ruts_invalidos)} RUT(s) con dígito verificador inválido — no fueron procesados.
+                        </div>
+                        ''', unsafe_allow_html=True)
+                        st.download_button(
+                            label="⬇ DESCARGAR LOG DE RUTs INVÁLIDOS",
+                            data=log_rut_invalido_bytes,
+                            file_name="log_ruts_invalidos.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                        )
 
                     if not sin_empleado:
                         st.markdown(f'''

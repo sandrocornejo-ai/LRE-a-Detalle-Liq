@@ -34,6 +34,31 @@ def normalizar_rut(rut):
     return str(rut).strip().replace('.', '').upper()
 
 
+def validar_dv_rut(rut_norm):
+    """Valida dígito verificador de un RUT normalizado (sin puntos, con guión)."""
+    try:
+        if '-' not in rut_norm:
+            return False
+        num_str, dv = rut_norm.rsplit('-', 1)
+        num = int(num_str)
+        factor = 2
+        suma = 0
+        while num > 0:
+            suma += (num % 10) * factor
+            num //= 10
+            factor = factor % 7 + 1 if factor < 7 else 2
+        resultado = 11 - (suma % 11)
+        if resultado == 11:
+            dv_calc = '0'
+        elif resultado == 10:
+            dv_calc = 'K'
+        else:
+            dv_calc = str(resultado)
+        return dv.upper() == dv_calc
+    except Exception:
+        return False
+
+
 def procesar_liquidaciones(file_entrada, file_empleados, file_empresas, file_conceptos=None):
     # ── Leer archivos de referencia ───────────────────────────────────────────
     import streamlit as st
@@ -68,13 +93,40 @@ def procesar_liquidaciones(file_entrada, file_empleados, file_empresas, file_con
 
     # ── Validar que todos los RUTs del archivo de entrada estén en empleados ──
     registros_sin_empleado = []
+    registros_rut_invalido = []
     for _, row in entrada_df.iterrows():
         rut_entrada = normalizar_rut(row.get('rut_trabajador', ''))
-        if rut_entrada not in ruts_empleados:
+        if not validar_dv_rut(rut_entrada):
+            registros_rut_invalido.append({
+                'Rut':                rut_entrada,
+                'Número de contrato': row.get('num_contrato', ''),
+                'Motivo':             'Dígito verificador inválido',
+            })
+        elif rut_entrada not in ruts_empleados:
             registros_sin_empleado.append({
                 'Rut': rut_entrada,
                 'Número de contrato': row.get('num_contrato', '')
             })
+
+    # ── Generar log si hay RUTs con DV inválido ──────────────────────────────
+    log_rut_invalido_bytes = None
+    if registros_rut_invalido:
+        df_rut_inv = pd.DataFrame(registros_rut_invalido)
+        buf_rut_inv = BytesIO()
+        with pd.ExcelWriter(buf_rut_inv, engine='openpyxl') as writer:
+            df_rut_inv.to_excel(writer, index=False, sheet_name='RUTs inválidos')
+            ws_ri = writer.sheets['RUTs inválidos']
+            from openpyxl.styles import Font, PatternFill, Alignment
+            for cell in ws_ri[1]:
+                cell.font      = Font(name='Arial', bold=True, color='FFFFFF', size=9)
+                cell.fill      = PatternFill('solid', start_color='8B0000')
+                cell.alignment = Alignment(horizontal='center', vertical='center')
+            ws_ri.row_dimensions[1].height = 25
+            ws_ri.freeze_panes = 'A2'
+            for col in ws_ri.columns:
+                ws_ri.column_dimensions[col[0].column_letter].width = 22
+        buf_rut_inv.seek(0)
+        log_rut_invalido_bytes = buf_rut_inv.read()
 
     # ── Generar log si hay RUTs no encontrados ────────────────────────────────
     log_bytes = None
@@ -444,4 +496,4 @@ def procesar_liquidaciones(file_entrada, file_empleados, file_empresas, file_con
         buf_ces.seek(0)
         log_ces_bytes = buf_ces.read()
 
-    return buf.read(), n_filas, n_trabajadores, registros_sin_empleado, log_bytes, registros_descuadre, log_descuadre_bytes, registros_ces, log_ces_bytes
+    return buf.read(), n_filas, n_trabajadores, registros_sin_empleado, log_bytes, registros_descuadre, log_descuadre_bytes, registros_ces, log_ces_bytes, registros_rut_invalido, log_rut_invalido_bytes
