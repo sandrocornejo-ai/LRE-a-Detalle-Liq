@@ -288,26 +288,51 @@ def procesar_liquidaciones(file_entrada, file_empleados, file_empresas, file_con
         if val_ccaf == 0 and val_isapre > 0:
             val_ccaf = round((lookup_param('aporte_ccaf') / 100) * imponible, 2)
 
-        # Mutual — buscar por id_empresa en listado_empresas
-        val_mutual = safe_float(row.get('Mutual', 0))
-        if val_mutual == 0:
-            try:
-                cot_mutual = safe_float(empresas_df.loc[str(id_empresa), 'Cotización Mutual']) if str(id_empresa) in empresas_df.index else 0
-                val_mutual = round((cot_mutual / 100) * imponible, 2)
-            except Exception:
-                val_mutual = 0
-
         # Seguro Invalidez y Sobrevivencia (SIS)
         val_sis = safe_float(row.get('Seguro Invalidez y Sobrevivencia', 0))
         if val_sis == 0:
             val_sis = round((lookup_param('sis') / 100) * imponible, 2)
 
-        # Actualizar valores en row para que el loop de conceptos los use
+        # ── Base con licencia médica ──────────────────────────────────────────
+        base_lic = imponible + (ult_imp_30 / 30 * dias_lic_med) if dias_lic_med > 0 else imponible
+
+        # ── CesAporteCi y cesAporteSol ────────────────────────────────────────
+        val_ces_ci  = safe_float(row.get('CesAporteCi', 0))
+        val_ces_sol = safe_float(row.get('cesAporteSol', 0))
+        if val_ces_ci == 0 or val_ces_sol == 0:
+            if tipo_contr == 'I':
+                val_ces_ci  = round(0.016 * base_lic, 2)
+                val_ces_sol = round(0.008 * base_lic, 2)
+            elif tipo_contr in ('F', 'O'):
+                val_ces_ci  = round(0.028 * base_lic, 2)
+                val_ces_sol = round(0.002 * base_lic, 2)
+
+        # ── aporteFAPPCEV ─────────────────────────────────────────────────────
+        val_fapp = safe_float(row.get('aporteFAPPCEV', 0))
+        if val_fapp == 0:
+            val_fapp = round(0.009 * base_lic, 2)
+
+        # ── Mutual con licencia ───────────────────────────────────────────────
+        val_mutual = safe_float(row.get('Mutual', 0))
+        if val_mutual == 0:
+            try:
+                cot_mutual = safe_float(empresas_df.loc[str(id_empresa), 'Cotización Mutual']) if str(id_empresa) in empresas_df.index else 0
+                if dias_lic_med > 0:
+                    val_mutual = round((cot_mutual / 100 * imponible) + (ult_imp_30 / 30 * dias_lic_med), 2)
+                else:
+                    val_mutual = round(cot_mutual / 100 * imponible, 2)
+            except Exception:
+                val_mutual = 0
+
+        # Actualizar valores en row
         row = row.copy()
         row['Trabajo Pesado']                    = val_trab_pesa
         row['Aporte a CCAF']                     = val_ccaf
         row['Mutual']                            = val_mutual
         row['Seguro Invalidez y Sobrevivencia']  = val_sis
+        row['CesAporteCi']                       = val_ces_ci
+        row['cesAporteSol']                      = val_ces_sol
+        row['aporteFAPPCEV']                     = val_fapp
 
         def lookup_param(col):
             if params_row is not None and col in params_df.columns:
