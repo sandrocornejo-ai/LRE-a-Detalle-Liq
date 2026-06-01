@@ -212,6 +212,21 @@ def generar_archivo_entrada(file_conceptos, file_empresas):
         dv.sqref = f"{cl(col)}2:{cl(col)}{DATA_ROWS}"
         ws.add_data_validation(dv)
 
+    # Advertencia: si Dias Lic. Med. > 0, Ult. Imp 30 dias debe ser > 0
+    lic_col     = cl('Dias Lic. Med.')
+    ult_imp_col = cl('Ult. Imp 30 dias')
+    dv_ult_imp = DataValidation(
+        type="custom",
+        formula1=f'=OR({lic_col}2=0,{lic_col}2="",(AND({lic_col}2>0,{ult_imp_col}2>0)))',
+        allow_blank=True,
+        showErrorMessage=True,
+        errorStyle="warning",
+        error='Si "Dias Lic. Med." es mayor que 0, el campo "Ult. Imp 30 dias" también debe ser mayor que 0.',
+        errorTitle="Advertencia: Ult. Imp 30 dias"
+    )
+    dv_ult_imp.sqref = f"{ult_imp_col}2:{ult_imp_col}{DATA_ROWS}"
+    ws.add_data_validation(dv_ult_imp)
+
     # Validación numérica para columnas de montos
     skip = {'mes_Proceso','rut_trabajador','num_contrato','nombre_emp','id_empresa',
             'id_afp','id_salud','id_mutual','id_ccaf',

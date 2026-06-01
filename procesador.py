@@ -218,6 +218,7 @@ def procesar_liquidaciones(file_entrada, file_empleados, file_empresas, file_con
     filas_salida        = []
     registros_descuadre = []
     registros_ces       = []
+    registros_ult_imp   = []
 
     for _, row in entrada_df.iterrows():
         mes_proc      = str(row.get('mes_Proceso', ''))
@@ -250,8 +251,31 @@ def procesar_liquidaciones(file_entrada, file_empleados, file_empresas, file_con
 
         dias_lic        = val_licencia if val_licencia > 0 else 0
         total_dias      = dias_mes(mes_proc)
-        dias_trab       = 30 if dias_lic == 0 else total_dias - dias_lic
-        monto_init      = round((val_sueldo_base / dias_trab) * 30, 2) if dias_trab > 0 else 0
+        dias_perm_falt  = safe_float(row.get('Dias Perm y Faltas', 0))
+        dias_lic_med    = safe_float(row.get('Dias Lic. Med.', 0))
+        ausencias       = dias_perm_falt + dias_lic_med
+
+        anio_proc, mes_proc_num = int(mes_proc[:4]), int(mes_proc[5:7])
+        if mes_proc_num == 2:
+            dias_trab = total_dias - ausencias
+        elif dias_lic_med > 0:
+            dias_trab = 31 - ausencias
+        else:
+            dias_trab = 30 - ausencias
+
+        dias_trab  = max(0, round(dias_trab, 2))
+        monto_init = round((val_sueldo_base / dias_trab) * 30, 2) if dias_trab > 0 else 0
+
+        # ── Validación Ult. Imp 30 dias ───────────────────────────────────────
+        ult_imp_30 = safe_float(row.get('Ult. Imp 30 dias', 0))
+        if dias_lic_med > 0 and ult_imp_30 == 0:
+            registros_ult_imp.append({
+                'Rut':                rut,
+                'Número de contrato': num_cont,
+                'Dias Lic. Med.':     dias_lic_med,
+                'Ult. Imp 30 dias':   ult_imp_30,
+                'Observación':        '"Ult. Imp 30 dias" debe ser > 0 cuando "Dias Lic. Med." > 0',
+            })
 
         # ── Aportes empleador — calcular si vienen en blanco o cero ──────────
         # Trabajo Pesado
@@ -496,4 +520,23 @@ def procesar_liquidaciones(file_entrada, file_empleados, file_empresas, file_con
         buf_ces.seek(0)
         log_ces_bytes = buf_ces.read()
 
-    return buf.read(), n_filas, n_trabajadores, registros_sin_empleado, log_bytes, registros_descuadre, log_descuadre_bytes, registros_ces, log_ces_bytes, registros_rut_invalido, log_rut_invalido_bytes
+    # ── Log de validación Ult. Imp 30 dias ───────────────────────────────────
+    log_ult_imp_bytes = None
+    if registros_ult_imp:
+        df_ult = pd.DataFrame(registros_ult_imp)
+        buf_ult = BytesIO()
+        with pd.ExcelWriter(buf_ult, engine='openpyxl') as writer:
+            df_ult.to_excel(writer, index=False, sheet_name='Ult. Imp 30 dias')
+            ws_ult = writer.sheets['Ult. Imp 30 dias']
+            for cell in ws_ult[1]:
+                cell.font      = Font(name='Arial', bold=True, color='FFFFFF', size=9)
+                cell.fill      = PatternFill('solid', start_color='E67E22')
+                cell.alignment = Alignment(horizontal='center', vertical='center')
+            ws_ult.row_dimensions[1].height = 25
+            ws_ult.freeze_panes = 'A2'
+            for col in ws_ult.columns:
+                ws_ult.column_dimensions[col[0].column_letter].width = 25
+        buf_ult.seek(0)
+        log_ult_imp_bytes = buf_ult.read()
+
+    return buf.read(), n_filas, n_trabajadores, registros_sin_empleado, log_bytes, registros_descuadre, log_descuadre_bytes, registros_ces, log_ces_bytes, registros_rut_invalido, log_rut_invalido_bytes, registros_ult_imp, log_ult_imp_bytes
