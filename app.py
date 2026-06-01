@@ -188,6 +188,14 @@ st.markdown("""
 # ── Tabs ──────────────────────────────────────────────────────────────────────
 tab1, tab2, tab3 = st.tabs(["📄 Generar Archivo de Entrada", "⚙️ Procesar Liquidaciones", "🗃️ Mantención de Tablas"])
 
+def validar_nombre_archivo(archivo, nombre_esperado):
+    """Muestra advertencia si el archivo subido no tiene el nombre esperado."""
+    if archivo is not None and archivo.name != nombre_esperado:
+        st.markdown(f'<div class="error-box">⚠️ El archivo seleccionado se llama <strong>{archivo.name}</strong>. '
+                    f'Debe llamarse <strong>{nombre_esperado}</strong></div>', unsafe_allow_html=True)
+        return False
+    return True
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # TAB 1 — GENERAR ARCHIVO DE ENTRADA
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -205,10 +213,12 @@ with tab1:
     with col1:
         st.markdown('<div class="step-label">Paso 1 — Lista de conceptos</div>', unsafe_allow_html=True)
         file_conceptos = st.file_uploader("Lista_de_conceptos.xlsx", type=['xlsx'], key="conceptos")
+        validar_nombre_archivo(file_conceptos, "Lista_de_conceptos.xlsx")
 
     with col2:
         st.markdown('<div class="step-label">Paso 2 — Listado de empresas</div>', unsafe_allow_html=True)
         file_empresas = st.file_uploader("listado_empresas.xlsx", type=['xlsx'], key="empresas")
+        validar_nombre_archivo(file_empresas, "listado_empresas.xlsx")
 
     st.markdown("<br>", unsafe_allow_html=True)
 
@@ -216,9 +226,15 @@ with tab1:
         archivos = [file_conceptos, file_empresas]
         nombres  = ["Lista de conceptos", "Listado de empresas"]
         faltantes = [n for f, n in zip(archivos, nombres) if f is None]
+        nombres_invalidos = (
+            (file_conceptos and file_conceptos.name != "Lista_de_conceptos.xlsx") or
+            (file_empresas  and file_empresas.name  != "listado_empresas.xlsx")
+        )
 
         if faltantes:
             st.markdown(f'<div class="error-box">⚠️ Faltan archivos: {", ".join(faltantes)}</div>', unsafe_allow_html=True)
+        elif nombres_invalidos:
+            st.markdown('<div class="error-box">⚠️ Corrija los nombres de los archivos antes de continuar.</div>', unsafe_allow_html=True)
         else:
             with st.spinner("Generando archivo..."):
                 try:
@@ -250,20 +266,24 @@ with tab2:
     with col1:
         st.markdown('<div class="step-label">Archivo de entrada (completado por cliente)</div>', unsafe_allow_html=True)
         file_entrada = st.file_uploader("archivo_entrada_liquidaciones.xlsx", type=['xlsx'], key="entrada")
+        validar_nombre_archivo(file_entrada, "archivo_entrada_liquidaciones.xlsx")
 
     with col2:
         st.markdown('<div class="step-label">Listado de empleados</div>', unsafe_allow_html=True)
         file_empleados2 = st.file_uploader("listado_empleados.xlsx", type=['xlsx'], key="empleados2")
+        validar_nombre_archivo(file_empleados2, "listado_empleados.xlsx")
 
     col3, col4 = st.columns(2)
 
     with col3:
         st.markdown('<div class="step-label">Listado de empresas</div>', unsafe_allow_html=True)
         file_empresas2 = st.file_uploader("listado_empresas.xlsx", type=['xlsx'], key="empresas2")
+        validar_nombre_archivo(file_empresas2, "listado_empresas.xlsx")
 
     with col4:
         st.markdown('<div class="step-label">Lista de conceptos</div>', unsafe_allow_html=True)
         file_conceptos2 = st.file_uploader("Lista_de_conceptos.xlsx", type=['xlsx'], key="conceptos2")
+        validar_nombre_archivo(file_conceptos2, "Lista_de_conceptos.xlsx")
 
     st.markdown("<br>", unsafe_allow_html=True)
 
@@ -271,9 +291,17 @@ with tab2:
         archivos = [file_entrada, file_empleados2, file_empresas2, file_conceptos2]
         nombres  = ["Archivo entrada", "Listado empleados", "Listado empresas", "Lista de conceptos"]
         faltantes = [n for f, n in zip(archivos, nombres) if f is None]
+        nombres_invalidos2 = any([
+            file_entrada    and file_entrada.name    != "archivo_entrada_liquidaciones.xlsx",
+            file_empleados2 and file_empleados2.name != "listado_empleados.xlsx",
+            file_empresas2  and file_empresas2.name  != "listado_empresas.xlsx",
+            file_conceptos2 and file_conceptos2.name != "Lista_de_conceptos.xlsx",
+        ])
 
         if faltantes:
             st.markdown(f'<div class="error-box">⚠️ Faltan archivos: {", ".join(faltantes)}</div>', unsafe_allow_html=True)
+        elif nombres_invalidos2:
+            st.markdown('<div class="error-box">⚠️ Corrija los nombres de los archivos antes de continuar.</div>', unsafe_allow_html=True)
         else:
             with st.spinner("Procesando liquidaciones..."):
                 try:
