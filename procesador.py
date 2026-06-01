@@ -295,6 +295,9 @@ def procesar_liquidaciones(file_entrada, file_empleados, file_empresas, file_con
             })
 
         # ── Aportes empleador — calcular si vienen en blanco o cero ──────────
+        tipo_contr    = tipo_contr_map.get(rut_norm, '')
+        fecha_ces_raw = fecha_ces_map.get(rut_norm, None)
+
         # Trabajo Pesado
         val_trab_pesa = safe_float(row.get('Trabajo Pesado', 0))
         if val_trab_pesa == 0:
@@ -368,9 +371,7 @@ def procesar_liquidaciones(file_entrada, file_empleados, file_empresas, file_con
             continue
 
         # ── Validación seguro de cesantía ─────────────────────────────────────
-        val_ces         = safe_float(row.get('Seguro de Cesantia', 0))
-        tipo_contr      = tipo_contr_map.get(rut_norm, '')
-        fecha_ces_raw   = fecha_ces_map.get(rut_norm, None)
+        val_ces = safe_float(row.get('Seguro de Cesantia', 0))
 
         # Validación 1: Tipo contrato I debe tener valor en Seguro de Cesantia
         if tipo_contr == 'I' and val_ces == 0:
