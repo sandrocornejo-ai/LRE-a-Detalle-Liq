@@ -187,6 +187,7 @@ def procesar_liquidaciones(file_entrada, file_empleados, file_empresas, file_con
 
         total_hab_afecto = sum(safe_float(row.get(c, 0)) for c in haberes_cols if c in hab_afecto_nombres or c not in hab_exento_nombres)
         total_hab_exento = sum(safe_float(row.get(c, 0)) for c in haberes_cols if c in hab_exento_nombres)
+        imponible        = min(total_hab_afecto, tope_afp)
 
         val_afp            = safe_float(row.get('Cotizacion AFP', 0))
         val_ces_empleado   = safe_float(row.get('Seguro de Cesantia', 0))
@@ -199,6 +200,38 @@ def procesar_liquidaciones(file_entrada, file_empleados, file_empresas, file_con
         total_dias      = dias_mes(mes_proc)
         dias_trab       = 30 if dias_lic == 0 else total_dias - dias_lic
         monto_init      = round((val_sueldo_base / dias_trab) * 30, 2) if dias_trab > 0 else 0
+
+        # ── Aportes empleador — calcular si vienen en blanco o cero ──────────
+        # Trabajo Pesado
+        val_trab_pesa = safe_float(row.get('Trabajo Pesado', 0))
+        if val_trab_pesa == 0:
+            val_trab_pesa = val_trab_pesa_empl
+
+        # Aporte a CCAF — solo cuando Cotizacion SALUD > 0
+        val_ccaf = safe_float(row.get('Aporte a CCAF', 0))
+        if val_ccaf == 0 and val_isapre > 0:
+            val_ccaf = round((lookup_param('aporte_ccaf') / 100) * imponible, 2)
+
+        # Mutual — buscar por id_empresa en listado_empresas
+        val_mutual = safe_float(row.get('Mutual', 0))
+        if val_mutual == 0:
+            try:
+                cot_mutual = safe_float(empresas_df.loc[str(id_empresa), 'Cotización Mutual']) if str(id_empresa) in empresas_df.index else 0
+                val_mutual = round((cot_mutual / 100) * imponible, 2)
+            except Exception:
+                val_mutual = 0
+
+        # Seguro Invalidez y Sobrevivencia (SIS)
+        val_sis = safe_float(row.get('Seguro Invalidez y Sobrevivencia', 0))
+        if val_sis == 0:
+            val_sis = round((lookup_param('sis') / 100) * imponible, 2)
+
+        # Actualizar valores en row para que el loop de conceptos los use
+        row = row.copy()
+        row['Trabajo Pesado']                    = val_trab_pesa
+        row['Aporte a CCAF']                     = val_ccaf
+        row['Mutual']                            = val_mutual
+        row['Seguro Invalidez y Sobrevivencia']  = val_sis
 
         def lookup_param(col):
             if params_row is not None and col in params_df.columns:
@@ -275,11 +308,11 @@ def procesar_liquidaciones(file_entrada, file_empleados, file_empresas, file_con
             if concepto_nombre in {'totalesEmpl', 'Sueldo liquido'}:
                 afecto = total_hab_afecto + total_hab_exento
             elif concepto_nombre in CONCEPTOS_AFP_AFECTO:
-                afecto = min(total_hab_afecto, tope_afp)
+                afecto = imponible
             elif concepto_nombre in CONCEPTOS_CES_AFECTO:
-                afecto = min(total_hab_afecto, tope_ces)
+                afecto = min(imponible, tope_ces)
             elif concepto_nombre in {'Impuesto mensual', 'IMPUESTO Reliq meses anteriores'}:
-                afecto = total_hab_afecto - (val_afp + val_ces_empleado + val_trab_pesa_empl + min(val_isapre, tope_salud))
+                afecto = imponible - (val_afp + val_ces_empleado + val_trab_pesa_empl + min(val_isapre, tope_salud))
             elif concepto_nombre in {'SALUD Reliq meses anteriores'}:
                 afecto = ''
             else:

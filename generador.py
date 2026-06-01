@@ -36,7 +36,8 @@ def generar_archivo_entrada(file_conceptos, file_empresas):
     nombres_empresa = empresas_df['Nombre'].dropna().tolist()
 
     # ── Columnas fijas ────────────────────────────────────────────────────────
-    FIXED = ['mes_Proceso', 'rut_trabajador', 'num_contrato', 'nombre_emp', 'id_empresa']
+    FIXED = ['mes_Proceso', 'rut_trabajador', 'num_contrato', 'nombre_emp', 'id_empresa',
+             'Dias Perm y Faltas', 'Dias Lic. Med.', 'Ult. Imp 30 dias']
 
     DESC_LEGALES = [
         'Cotizacion AFP', 'id_afp', 'AFP Reliq meses anteriores', 'Ahorro AFP',
@@ -177,8 +178,18 @@ def generar_archivo_entrada(file_conceptos, file_empresas):
     add_dv(ws, DataValidation(type="list", formula1=f"lst_caja!$A$1:$A${len(nombres_caja)}", allow_blank=True,
                                showErrorMessage=True, error="Seleccione caja de compensación", errorTitle="CCAF inválida"), 'id_ccaf')
 
+    # Validación para columnas de días
+    for col in ['Dias Perm y Faltas', 'Dias Lic. Med.', 'Ult. Imp 30 dias']:
+        dv = DataValidation(type="whole", operator="greaterThanOrEqual", formula1="0",
+                            allow_blank=True, showErrorMessage=True,
+                            error="Debe ser número entero mayor o igual a 0", errorTitle="Valor inválido")
+        dv.sqref = f"{cl(col)}2:{cl(col)}{DATA_ROWS}"
+        ws.add_data_validation(dv)
+
     # Validación numérica para columnas de montos
-    skip = {'mes_Proceso','rut_trabajador','num_contrato','nombre_emp','id_empresa','id_afp','id_salud','id_mutual','id_ccaf'}
+    skip = {'mes_Proceso','rut_trabajador','num_contrato','nombre_emp','id_empresa',
+            'id_afp','id_salud','id_mutual','id_ccaf',
+            'Dias Perm y Faltas','Dias Lic. Med.','Ult. Imp 30 dias'}
     for col in all_cols:
         if col not in skip:
             dv = DataValidation(type="decimal", operator="greaterThanOrEqual", formula1="0", allow_blank=True, showErrorMessage=False)
