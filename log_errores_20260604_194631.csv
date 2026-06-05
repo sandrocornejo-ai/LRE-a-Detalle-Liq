@@ -1,0 +1,3 @@
+Archivo,RUT,Validacion,Descripcion,Valor Calculado,Valor Control,Diferencia
+84000000-1_202503.csv,25605922-3,V3,total_descuentos_legales ≠ Total descuentos por cotizaciones del trabajador(5341),4133410,719225,3414185
+84000000-1_202503.csv,25605922-3,V4,total_otros_descuentos ≠ Total otros descuentos(5302),68298,0,68298
