@@ -535,7 +535,7 @@ def generar_filas_salida(df, fecha_proceso, refs):
             salud_rebaja
         )
 
-        def make_fila(id_concepto, monto, id_institucion, afecto, cot_jubilacion):
+        def make_fila(id_concepto, monto, id_institucion, afecto, cot_jubilacion, rebaja_zona_override=None):
             return {
                 "Fecha de proceso":           fecha_proceso,
                 "Id empleado":                rut,
@@ -546,12 +546,12 @@ def generar_filas_salida(df, fecha_proceso, refs):
                 "Id de institución":          id_institucion,
                 "Cotización de jubilación":   cot_jubilacion,
                 "Días de licencias":          dias_licencia,
-                "Días trabajados":            dias_vacaciones,
+                "Días trabajados":            dias_trabajados,
                 "Fecha de aplicación":        "x",
                 "Empresa":                    empresa_salida,
                 "Total de rebajas por LLSS":  rebajas_llss_impuesto if id_concepto == "impuesto" else 0,
                 "Rentas no gravadas":         (row.get("_total_haberes_exentos", 0) or 0) if id_concepto == "impuesto" else 0,
-                "Rebaja por zona extrema":    rebaja_zona,
+                "Rebaja por zona extrema":    rebaja_zona if rebaja_zona_override is None else rebaja_zona_override,
                 "Jornada":                    "C",
                 "Días de vacaciones":         dias_vacaciones,
                 "Monto Init":                 round(monto_init, 2),
@@ -628,7 +628,7 @@ def generar_filas_salida(df, fecha_proceso, refs):
 
         # Fila adicional licenciaDias si aplica
         if dias_licencia > 0:
-            filas.append(make_fila("licenciaDias", dias_licencia, "", "", dias_licencia))
+            filas.append(make_fila("licenciaDias", dias_licencia, "", 0, 0, rebaja_zona_override=0))
 
     df_result = pd.DataFrame(filas)
     # Filtrar filas de RUTs con múltiples contratos
