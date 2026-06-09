@@ -647,7 +647,16 @@ if archivos:
 
         with st.spinner("Procesando archivos..."):
             for archivo in archivos:
-                df = pd.read_csv(archivo, encoding="utf-8", sep=None, engine="python")
+                for enc in ("utf-8", "latin-1", "utf-8-sig", "cp1252"):
+                    try:
+                        archivo.seek(0)
+                        df = pd.read_csv(archivo, encoding=enc, sep=None, engine="python")
+                        break
+                    except (UnicodeDecodeError, Exception):
+                        continue
+                else:
+                    st.error(f"❌ No se pudo leer el archivo {archivo.name}. Verifica que sea un CSV válido.")
+                    st.stop()
                 df = calcular_totales(df)
                 errores = validar_cuadraturas(df, archivo.name)
                 todos_errores.extend(errores)

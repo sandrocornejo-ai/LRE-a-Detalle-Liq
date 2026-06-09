@@ -16,7 +16,7 @@ DATA_DIR = "data"  # Carpeta con archivos de referencia
 # ESTILOS REX+
 # ─────────────────────────────────────────────
 st.set_page_config(
-    page_title="Rex+ | Liquidaciones en detalle desde LRE",
+    page_title="Rex+ | Migración DDJJ Previred",
     page_icon="💼",
     layout="wide"
 )
@@ -31,41 +31,33 @@ html, body, [class*="css"] {
 
 /* Header */
 .rex-header {
-    background: linear-gradient(90deg, #2d4a7a 0%, #3a5a8f 100%);
+    background-color: #1a2744;
     padding: 14px 28px;
     border-radius: 10px;
     display: flex;
     align-items: center;
     justify-content: space-between;
     margin-bottom: 28px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
 }
 .rex-logo {
     background: white;
-    color: #2d4a7a;
+    color: #1a2744;
     font-weight: 800;
     font-size: 15px;
-    padding: 6px 12px;
-    border-radius: 8px;
+    padding: 5px 10px;
+    border-radius: 6px;
     letter-spacing: 0.5px;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.15);
 }
-.rex-logo span { color: #00c8e6; }
-.rex-divider-header {
-    width: 1px;
-    height: 28px;
-    background: rgba(255,255,255,0.3);
-    margin: 0 16px;
-}
-.rex-title { color: white; font-size: 17px; font-weight: 500; letter-spacing: 0.2px; }
+.rex-logo span { color: #00b4d8; }
+.rex-title { color: white; font-size: 18px; font-weight: 600; margin-left: 16px; }
 .rex-badge {
-    background: #00c8e6;
+    background: #00b4d8;
     color: white;
     font-size: 11px;
     font-weight: 700;
-    padding: 5px 14px;
+    padding: 4px 12px;
     border-radius: 20px;
-    letter-spacing: 1.5px;
+    letter-spacing: 1px;
 }
 
 /* Cards */
@@ -195,16 +187,19 @@ COLS_HABERES_EXENTOS = [
 
 COLS_DESCUENTOS_LEGALES = [
     "Cotización obligatoria previsional (AFP o IPS)(3141)",
-    "Cotización obligatoria salud 7%(3143)",
-    "Cotización voluntaria para salud(3144)",
+    "Cotización obligatoria salud 7%(3143)", "Cotización voluntaria para salud(3144)",
     "Cotización AFC - trabajador(3151)",
     "Cotizaciones técnico extranjero para seguridad social fuera de Chile(3146)",
     "Descuento depósito convenido hasta UF 900 anual(3147)",
     "Cotización APVi Mod A(3155)", "Cotización APVi Mod B hasta UF50(3156)",
     "Cotización APVc Mod A(3157)", "Cotización APVc Mod B hasta UF50(3158)",
+    "Impuesto retenido por remuneraciones(3161)",
+    "Impuesto retenido por indemnizaciones(3162)",
+    "Mayor retención de impuestos solicitada por el trabajador(3163)",
+    "Impuesto retenido por reliquidación remun. devengadas otros períodos(3164)",
+    "Diferencia impuesto reliquidación remun. devengadas en este período(3165)",
     "Retención préstamo clase media 2020 (Ley 21.252) (3166)",
-    "Rebaja zona extrema DL 889 (3167)",
-    "Cotización adicional trabajo pesado - trabajador(3154)"
+    "Rebaja zona extrema DL 889 (3167)"
 ]
 
 COLS_OTROS_DESCUENTOS = [
@@ -214,7 +209,7 @@ COLS_OTROS_DESCUENTOS = [
     "Cuota sindical 10(3180)", "Crédito social CCAF(3110)",
     "Cuota vivienda o educación(3181)", "Crédito cooperativas de ahorro(3182)",
     "Otros descuentos autorizados y solicitados por el trabajador(3183)",
-    "Mayor retención de impuestos solicitada por el trabajador(3163)",
+    "Cotización adicional trabajo pesado - trabajador(3154)",
     "Donaciones culturales y de reconstrucción(3184)", "Otros descuentos(3185)",
     "Pensiones de alimentos(3186)", "Descuento mujer casada(3187)",
     "Descuentos por anticipos y préstamos(3188)"
@@ -258,29 +253,23 @@ GRUPOS_CES_AFECTO = {
 @st.cache_data
 def cargar_referencias():
     refs = {}
-    # Archivos con header en fila 1 (tienen título en fila 0)
-    header1 = {"listado_empleados", "listado_empresas"}
     archivos = {
-        "equiv_conceptos":  "equiv_conceptos.xlsx",
+        "equiv_conceptos": "equiv_conceptos.xlsx",
         "listado_empleados": "listado_empleados.xlsx",
-        "listado_empresas":  "listado_empresas.xlsx",
-        "inst_mutuales":    "inst_mutuales.xlsx",
-        "inst_cajas":       "inst_cajas.xlsx",
-        "inst_afp":         "inst_afp.xlsx",
-        "inst_salud":       "inst_salud.xlsx",
-        "cot_afp_hist":     "cot_afp_hist.xlsx",
-        "parametros":       "parametrosMesuales.xlsx",
+        "listado_empresas": "listado_empresas.xlsx",
+        "inst_mutuales": "inst_mutuales.xlsx",
+        "inst_cajas": "inst_cajas.xlsx",
+        "cot_afp_hist": "cot_afp_hist.xlsx",
+        "parametros": "parametrosMensuales.xlsx",
     }
     errores = []
     for key, fname in archivos.items():
         path = os.path.join(DATA_DIR, fname)
         if os.path.exists(path):
-            h = 1 if key in header1 else 0
-            refs[key] = pd.read_excel(path, header=h)
+            refs[key] = pd.read_excel(path)
         else:
             errores.append(fname)
     return refs, errores
-
 
 # ─────────────────────────────────────────────
 # FUNCIONES DE PROCESAMIENTO
@@ -322,62 +311,27 @@ def calcular_totales(df):
     df["_total_aportes_empleador"] = safe_sum(df, COLS_APORTES_EMPLEADOR)
     return df
 
-VALIDACIONES_META = {
-    "V1": {
-        "nombre": "Haberes afectos",
-        "descripcion": "El total de haberes imponibles y tributables calculado no coincide con la columna de control del CSV.",
-        "formula": "total_haberes_afectos = suma de cols (2101..2199, 2700..2799)",
-        "col_ctrl_label": "Total haberes imponibles y tributables (5210)",
-    },
-    "V2": {
-        "nombre": "Haberes exentos",
-        "descripcion": "El total de haberes no imponibles y no tributables calculado no coincide con la columna de control del CSV.",
-        "formula": "total_haberes_exentos = suma de cols (3100..3199, 3700..3799)",
-        "col_ctrl_label": "Total haberes no imponibles y no tributables (5230)",
-    },
-    "V3": {
-        "nombre": "Descuentos legales",
-        "descripcion": "El total de descuentos legales calculado no coincide con la columna de control del CSV.",
-        "formula": "total_descuentos_legales = suma(3141, 3143, 3144, 3146, 3147, 3151, 3154, 3155, 3156, 3157, 3158, 3166, 3167)",
-        "col_ctrl_label": "Total descuentos por cotizaciones del trabajador (5341)",
-    },
-    "V4": {
-        "nombre": "Otros descuentos",
-        "descripcion": "El total de otros descuentos calculado no coincide con la columna de control del CSV.",
-        "formula": "total_otros_descuentos = suma de cols (5300..5302)",
-        "col_ctrl_label": "Total otros descuentos (5302)",
-    },
-    "V5": {
-        "nombre": "Aportes empleador",
-        "descripcion": "El total de aportes del empleador calculado no coincide con la columna de control del CSV.",
-        "formula": "total_aportes_empleador = suma de cols (5400..5410)",
-        "col_ctrl_label": "Total aportes empleador (5410)",
-    },
-    "V6": {
-        "nombre": "Total liquido",
-        "descripcion": "El total liquido calculado (haberes - descuentos) no coincide con la columna de control del CSV.",
-        "formula": "(haberes_afectos + haberes_exentos) - (desc_legales + otros_desc + Impuesto retenido por remuneraciones(3161)) = Total liquido(5501)",
-        "col_ctrl_label": "Total liquido (5501)",
-    },
-}
-
 def validar_cuadraturas(df, nombre_archivo):
     """Ejecuta las 6 validaciones y retorna lista de errores."""
     errores = []
     tol = 1  # tolerancia de 1 peso por redondeo
 
     validaciones = [
-        ("V1", "_total_haberes_afectos", "Total haberes imponibles y tributables(5210)"),
-        ("V2", "_total_haberes_exentos", "Total haberes no imponibles y no tributables(5230)"),
-        ("V3", "_total_descuentos_legales", "Total descuentos por cotizaciones del trabajador(5341)"),
-        ("V4", "_total_otros_descuentos", "Total otros descuentos(5302)"),
-        ("V5", "_total_aportes_empleador", "Total aportes empleador(5410)"),
+        ("V1", "_total_haberes_afectos", "Total haberes imponibles y tributables(5210)",
+         "total_haberes_afectos ≠ Total haberes imponibles y tributables(5210)"),
+        ("V2", "_total_haberes_exentos", "Total haberes no imponibles y no tributables(5230)",
+         "total_haberes_exentos ≠ Total haberes no imponibles y no tributables(5230)"),
+        ("V3", "_total_descuentos_legales", "Total descuentos por cotizaciones del trabajador(5341)",
+         "total_descuentos_legales ≠ Total descuentos por cotizaciones del trabajador(5341)"),
+        ("V4", "_total_otros_descuentos", "Total otros descuentos(5302)",
+         "total_otros_descuentos ≠ Total otros descuentos(5302)"),
+        ("V5", "_total_aportes_empleador", "Total aportes empleador(5410)",
+         "total_aportes_empleador ≠ Total aportes empleador(5410)"),
     ]
 
-    for codigo, col_calc, col_ctrl in validaciones:
+    for codigo, col_calc, col_ctrl, mensaje in validaciones:
         if col_ctrl not in df.columns:
             continue
-        meta = VALIDACIONES_META[codigo]
         ctrl = df[col_ctrl].fillna(0)
         calc = df[col_calc].fillna(0)
         mask = (calc - ctrl).abs() > tol
@@ -385,36 +339,29 @@ def validar_cuadraturas(df, nombre_archivo):
         for _, row in filas_error.iterrows():
             errores.append({
                 "Archivo": nombre_archivo,
-                "RUT": row.get("Rut trabajador(1101)", "N/D"),
-                "Validacion": codigo,
-                "Nombre validacion": meta["nombre"],
-                "Descripcion": meta["descripcion"],
-                "Formula aplicada": meta["formula"],
-                "Col control CSV": meta["col_ctrl_label"],
-                "Valor Calculado": round(calc[row.name], 2),
-                "Valor Control": round(ctrl[row.name], 2),
+                "RUT": row.get("Rut trabajador (1101)", "N/D"),
+                "Validación": codigo,
+                "Descripción": mensaje,
+                "Valor calculado": round(calc[row.name], 2),
+                "Valor control": round(ctrl[row.name], 2),
                 "Diferencia": round(calc[row.name] - ctrl[row.name], 2)
             })
 
     # V6: liquidez
-    if "Total líquido(5501)" in df.columns:
-        meta = VALIDACIONES_META["V6"]
+    if all(c in df.columns for c in ["Total líquido(5501)"]):
         liq_calc = (df["_total_haberes_afectos"] + df["_total_haberes_exentos"]) - \
-                   (df["_total_descuentos_legales"] + df["_total_otros_descuentos"] + get_col(df, "Impuesto retenido por remuneraciones(3161)"))
+                   (df["_total_descuentos_legales"] + df["_total_otros_descuentos"])
         liq_ctrl = df["Total líquido(5501)"].fillna(0)
         mask = (liq_calc - liq_ctrl).abs() > tol
         filas_error = df[mask]
         for _, row in filas_error.iterrows():
             errores.append({
                 "Archivo": nombre_archivo,
-                "RUT": row.get("Rut trabajador(1101)", "N/D"),
-                "Validacion": "V6",
-                "Nombre validacion": meta["nombre"],
-                "Descripcion": meta["descripcion"],
-                "Formula aplicada": meta["formula"],
-                "Col control CSV": meta["col_ctrl_label"],
-                "Valor Calculado": round(liq_calc[row.name], 2),
-                "Valor Control": round(liq_ctrl[row.name], 2),
+                "RUT": row.get("Rut trabajador (1101)", "N/D"),
+                "Validación": "V6",
+                "Descripción": "(haberes_afectos + haberes_exentos) - (desc_legales + otros_desc) ≠ Total líquido(5501)",
+                "Valor calculado": round(liq_calc[row.name], 2),
+                "Valor control": round(liq_ctrl[row.name], 2),
                 "Diferencia": round(liq_calc[row.name] - liq_ctrl[row.name], 2)
             })
 
@@ -424,177 +371,91 @@ def generar_filas_salida(df, fecha_proceso, refs):
     """Genera las filas del archivo de salida via pivot de conceptos."""
     filas = []
 
-    # Cargar referencias
-    equiv      = refs.get("equiv_conceptos", pd.DataFrame())
-    empleados  = refs.get("listado_empleados", pd.DataFrame())
-    empresas   = refs.get("listado_empresas", pd.DataFrame())
-    mutuales   = refs.get("inst_mutuales", pd.DataFrame())
-    cajas      = refs.get("inst_cajas", pd.DataFrame())
-    inst_afp   = refs.get("inst_afp", pd.DataFrame())
-    inst_salud = refs.get("inst_salud", pd.DataFrame())
-    cot_afp    = refs.get("cot_afp_hist", pd.DataFrame())
-    params     = refs.get("parametros", pd.DataFrame())
+    # Cargar lookups
+    equiv = refs.get("equiv_conceptos", pd.DataFrame())
+    empleados = refs.get("listado_empleados", pd.DataFrame())
+    empresas = refs.get("listado_empresas", pd.DataFrame())
+    mutuales = refs.get("inst_mutuales", pd.DataFrame())
+    cajas = refs.get("inst_cajas", pd.DataFrame())
+    cot_afp = refs.get("cot_afp_hist", pd.DataFrame())
+    params = refs.get("parametros", pd.DataFrame())
 
-    # Diccionario equiv conceptos
+    # Diccionario de equivalencias de conceptos
     equiv_dict = {}
     if not equiv.empty and "cod_lre" in equiv.columns and "concepto_detalle" in equiv.columns:
         equiv_dict = dict(zip(equiv["cod_lre"], equiv["concepto_detalle"]))
 
-    # Diccionarios de instituciones (cod_lre numérico → id texto)
-    afp_dict    = dict(zip(inst_afp["cod_lre"], inst_afp["id_afp"])) if not inst_afp.empty and "cod_lre" in inst_afp.columns else {}
-    salud_dict  = dict(zip(inst_salud["cod_lre"], inst_salud["id_inst"])) if not inst_salud.empty and "cod_lre" in inst_salud.columns else {}
-    mutual_dict = dict(zip(mutuales["cod_lre"], mutuales["id_mutual"])) if not mutuales.empty and "cod_lre" in mutuales.columns else {}
-    nombre_mutual_dict = dict(zip(mutuales["cod_lre"], mutuales["nombre_mutual"])) if not mutuales.empty else {}
-    caja_dict   = dict(zip(cajas["cod_lre"], cajas["id_ccaf"])) if not cajas.empty and "cod_lre" in cajas.columns else {}
-
-    # Diccionario empleados: Rut → {AFP, Isapre, Empresa}
-    emp_dict = {}
-    if not empleados.empty and "Rut" in empleados.columns:
-        for _, er in empleados.iterrows():
-            emp_dict[str(er["Rut"])] = {
-                "afp": str(er.get("AFP", "") or "").lower().strip(),
-                "isapre": str(er.get("Isapre", "") or "").lower().strip(),
-                "empresa_nombre": str(er.get("Empresa", "") or "").strip(),
-            }
-
-    # Diccionario contratos: Rut → {num_contrato, multiple}
-    contrato_dict = {}  # Rut -> numero de contrato
-    ruts_multiples = []  # Ruts con más de un contrato
-    if not empleados.empty and "Rut" in empleados.columns and "Contrato" in empleados.columns:
-        conteos = empleados.groupby("Rut").size()
-        ruts_multiples = list(conteos[conteos > 1].index.astype(str))
-        unico = empleados[~empleados["Rut"].astype(str).isin(ruts_multiples)]
-        contrato_dict = dict(zip(unico["Rut"].astype(str), unico["Contrato"]))
-
-    # Diccionario empresas: Nombre largo → código corto
-    empresa_dict = {}
-    mutual_cot_dict = {}
-    if not empresas.empty and "Nombre" in empresas.columns and "Empresa" in empresas.columns:
-        empresa_dict = dict(zip(empresas["Nombre"].astype(str).str.strip(), empresas["Empresa"].astype(str).str.strip()))
-    if not empresas.empty and "Mutual" in empresas.columns and "Cotización Mutual" in empresas.columns:
-        mutual_cot_dict = dict(zip(empresas["Mutual"].astype(str).str.strip(), empresas["Cotización Mutual"]))
-
-    # Parámetros mensuales
+    # Parámetros mensuales (primera fila)
     tope_afp = 0
     tope_ces = 0
-    tope_salud = 0
-    if not params.empty and "mes_Proc" in params.columns:
-        fila_param = params[params["mes_Proc"].astype(str).str[:7] == fecha_proceso]
-        if fila_param.empty:
-            fila_param = params  # fallback a primera fila
+    if not params.empty:
         if "topeImp_pesos_afp" in params.columns:
-            tope_afp = float(fila_param["topeImp_pesos_afp"].iloc[0] or 0)
+            tope_afp = params["topeImp_pesos_afp"].iloc[0]
         if "topeCes_pesos" in params.columns:
-            tope_ces = float(fila_param["topeCes_pesos"].iloc[0] or 0)
-        if "topeSalud_pesos" in params.columns:
-            tope_salud = float(fila_param["topeSalud_pesos"].iloc[0] or 0)
+            tope_ces = params["topeCes_pesos"].iloc[0]
 
-    # Columnas de conceptos
+    # Columnas de conceptos (las que están en equiv_dict)
     cols_concepto = [c for c in df.columns if c in equiv_dict]
 
     for _, row in df.iterrows():
-        rut             = str(row.get("Rut trabajador(1101)", "") or "").strip()
-        cod_afp         = row.get("AFP(1141)", 0) or 0
-        cod_salud       = row.get("FONASA - ISAPRE(1143)", 0) or 0
-        cod_ccaf        = row.get("CCAF(1110)", 0) or 0
-        cod_mutual      = row.get("Org. administrador ley 16.744(1152)", 0) or 0
-        col_3110        = row.get("Crédito social CCAF(3110)", 0) or 0
-        dias_trabajados = row.get("Nro días trabajados en el mes(1115)", 0) or 0
-        dias_licencia   = row.get("Nro días de licencia médica en el mes(1116)", 0) or 0
-        dias_vacaciones = row.get("Nro días de vacaciones en el mes(1117)", 0) or 0
-        sueldo          = row.get("Sueldo(2101)", 0) or 0
-        total_imponible = row.get("Total haberes imponibles y tributables(5210)", 0) or 0
-        rebaja_zona     = row.get("Rebaja zona extrema DL 889 (3167)", 0) or 0
+        rut = row.get("Rut trabajador (1101)", "")
 
-        # Resolver instituciones desde códigos numéricos del CSV
-        id_afp_emp    = afp_dict.get(int(cod_afp), "") if cod_afp else ""
-        id_salud_emp  = salud_dict.get(int(cod_salud), "") if cod_salud else ""
-        id_mutual_emp = mutual_dict.get(int(cod_mutual), "") if cod_mutual else ""
-        id_ccaf_emp   = caja_dict.get(int(col_3110), "") if col_3110 else ""
-
-        # Empresa desde listado_empleados → listado_empresas
+        # Lookup empresa
         empresa_salida = ""
-        emp_info = emp_dict.get(rut, {})
-        nombre_empresa = emp_info.get("empresa_nombre", "")
-        if nombre_empresa:
-            empresa_salida = empresa_dict.get(nombre_empresa, "")
+        if not empleados.empty and "Rut" in empleados.columns:
+            emp_row = empleados[empleados["Rut"] == rut]
+            if not emp_row.empty:
+                nombre_empresa = emp_row.iloc[0].get("Empresa", "")
+                if not empresas.empty and "Nombre" in empresas.columns:
+                    emp2 = empresas[empresas["Nombre"] == nombre_empresa]
+                    if not emp2.empty:
+                        empresa_salida = emp2.iloc[0].iloc[0]
 
-        # Cotización mutual para esta empresa
-        nombre_mutual_emp = nombre_mutual_dict.get(int(cod_mutual), "") if cod_mutual else ""
+        # AFP e Isapre del empleado
+        afp_empleado = ""
+        isapre_empleado = ""
+        if not empleados.empty and "Rut" in empleados.columns:
+            emp_row = empleados[empleados["Rut"] == rut]
+            if not emp_row.empty:
+                afp_empleado = emp_row.iloc[0].get("AFP", "")
+                isapre_empleado = emp_row.iloc[0].get("Isapre", "")
+
+        dias_trabajados = row.get("Nro días trabajados en el mes(1115)", 0) or 0
+        dias_licencia = row.get("Nro días de licencia médica en el mes(1116)", 0) or 0
+        dias_vacaciones = row.get("Nro días de vacaciones en el mes(1117)", 0) or 0
+        sueldo = row.get("Sueldo(2101)", 0) or 0
+        total_imponible = row.get("Total haberes imponibles y tributables(5210)", 0) or 0
+        col_1152 = row.get("Org. administrador ley 16.744(1152)", "")
+        col_3110 = row.get("Crédito social CCAF(3110)", 0) or 0
+        rebaja_zona = row.get("Rebaja zona extrema DL 889 (3167)", 0) or 0
 
         monto_init = (sueldo / dias_trabajados * 30) if dias_trabajados > 0 else 0
 
-        # Calcular Total rebajas por LLSS para concepto impuesto
-        cot_salud_total = (row.get("Cotización obligatoria salud 7%(3143)", 0) or 0) +                           (row.get("Cotización voluntaria para salud(3144)", 0) or 0)
-        salud_rebaja = min(tope_salud, cot_salud_total) if tope_salud > 0 else cot_salud_total
-        rebajas_llss_impuesto = (
-            (row.get("Cotización obligatoria previsional (AFP o IPS)(3141)", 0) or 0) +
-            (row.get("Cotización AFC - trabajador(3151)", 0) or 0) +
-            (row.get("Cotización APVi Mod B hasta UF50(3156)", 0) or 0) +
-            (row.get("Cotización adicional trabajo pesado - trabajador(3154)", 0) or 0) +
-            salud_rebaja
-        )
-
-        def make_fila(id_concepto, monto, id_institucion, afecto, cot_jubilacion, rebaja_zona_override=None):
-            return {
-                "Fecha de proceso":           fecha_proceso,
-                "Id empleado":                rut,
-                "Número de contrato":         contrato_dict.get(rut, 1),
-                "Id del concepto":            id_concepto,
-                "Monto del concepto":         monto,
-                "Afecto":                     afecto,
-                "Id de institución":          id_institucion,
-                "Cotización de jubilación":   cot_jubilacion,
-                "Días de licencias":          dias_licencia,
-                "Días trabajados":            dias_trabajados,
-                "Fecha de aplicación":        "x",
-                "Empresa":                    empresa_salida,
-                "Total de rebajas por LLSS":  rebajas_llss_impuesto if id_concepto == "impuesto" else 0,
-                "Rentas no gravadas":         (row.get("_total_haberes_exentos", 0) or 0) if id_concepto == "impuesto" else 0,
-                "Rebaja por zona extrema":    rebaja_zona if rebaja_zona_override is None else rebaja_zona_override,
-                "Jornada":                    "C",
-                "Días de vacaciones":         dias_vacaciones,
-                "Monto Init":                 round(monto_init, 2),
-                "Fase":                       1,
-            }
-
-        # Monto especial isapre = cotizacion obligatoria + voluntaria salud
-        monto_isapre = (row.get("Cotización obligatoria salud 7%(3143)", 0) or 0) +                        (row.get("Cotización voluntaria para salud(3144)", 0) or 0)
-
         # Fila por cada concepto
-        conceptos_ya_generados = set()
         for col_csv in cols_concepto:
             monto = row.get(col_csv, 0) or 0
             id_concepto = equiv_dict.get(col_csv, "")
-            if monto == 0 and id_concepto not in ("cesEmpleado", "impuesto"):
-                continue
-            if id_concepto == "isapre":
-                if "isapre" in conceptos_ya_generados:
-                    continue
-                monto = monto_isapre
-                if monto == 0:
-                    continue
-            if id_concepto in conceptos_ya_generados and id_concepto not in ("CuotaSindMi", "otrosHaberes", "otrosDesctoMi"):
-                continue
 
             # Id de institución
             id_institucion = ""
             if id_concepto in GRUPOS_AFP:
-                id_institucion = id_afp_emp
+                id_institucion = afp_empleado
             elif id_concepto in GRUPOS_ISAPRE:
-                id_institucion = id_salud_emp
+                id_institucion = isapre_empleado
             elif id_concepto in GRUPOS_MUTUAL:
-                id_institucion = id_mutual_emp
+                if not mutuales.empty and "cod_lre" in mutuales.columns and "id_mutual" in mutuales.columns:
+                    m = mutuales[mutuales["cod_lre"] == col_1152]
+                    if not m.empty:
+                        id_institucion = m.iloc[0]["id_mutual"]
             elif id_concepto in GRUPOS_CCAF and col_3110 != 0:
-                id_institucion = id_ccaf_emp
+                if not cajas.empty:
+                    c = cajas[cajas.iloc[:, 0] == col_3110]
+                    if not c.empty and "id_ccaf" in cajas.columns:
+                        id_institucion = c.iloc[0]["id_ccaf"]
 
             # Afecto
-            afecto = 0
-            if id_concepto == "impuesto":
-                afecto = (row.get("_total_haberes_afectos", 0) or 0) - rebajas_llss_impuesto
-            elif id_concepto == "totalesEmpl":
-                afecto = (row.get("_total_haberes_afectos", 0) or 0) + (row.get("_total_haberes_exentos", 0) or 0)
-            elif id_concepto in GRUPOS_AFP_MUTUAL_AFECTO:
+            afecto = ""
+            if id_concepto in GRUPOS_AFP_MUTUAL_AFECTO:
                 afecto = min(total_imponible, tope_afp) if tope_afp > 0 else total_imponible
             elif id_concepto in GRUPOS_CES_AFECTO:
                 afecto = min(total_imponible, tope_ces) if tope_ces > 0 else total_imponible
@@ -602,13 +463,13 @@ def generar_filas_salida(df, fecha_proceso, refs):
             # Cotización de jubilación
             cot_jubilacion = 0
             if id_concepto == "afp":
-                key_afp = f"{fecha_proceso}{id_afp_emp}"
+                key_afp = f"{fecha_proceso}{id_institucion}"
                 if not cot_afp.empty and "id_afp_hist" in cot_afp.columns:
                     r = cot_afp[cot_afp["id_afp_hist"] == key_afp]
                     if not r.empty:
                         cot_jubilacion = r.iloc[0].get("cot_hist_afp", 0)
             elif id_concepto == "sis":
-                key_sis = f"{fecha_proceso}{id_afp_emp}"
+                key_sis = f"{fecha_proceso}{id_institucion}"
                 if not cot_afp.empty and "id_afp_hist" in cot_afp.columns:
                     r = cot_afp[cot_afp["id_afp_hist"] == key_sis]
                     if not r.empty:
@@ -618,23 +479,60 @@ def generar_filas_salida(df, fecha_proceso, refs):
             elif id_concepto == "isapre":
                 cot_jubilacion = monto
             elif id_concepto == "mutual":
-                cot_jubilacion = mutual_cot_dict.get(nombre_mutual_emp, 0)
+                if not mutuales.empty and "cod_lre" in mutuales.columns and "nombre_mutual" in mutuales.columns:
+                    m = mutuales[mutuales["cod_lre"] == col_1152]
+                    if not m.empty:
+                        nombre_mutual = m.iloc[0]["nombre_mutual"]
+                        if not empresas.empty and "Mutual" in empresas.columns and "Cotización Mutual" in empresas.columns:
+                            e = empresas[empresas["Mutual"] == nombre_mutual]
+                            if not e.empty:
+                                cot_jubilacion = e.iloc[0]["Cotización Mutual"]
             elif id_concepto == "licenciaDias":
                 cot_jubilacion = dias_licencia
 
-            cot_fmt = round(cot_jubilacion * 100, 4) if isinstance(cot_jubilacion, float) and id_concepto not in ("isapre", "licenciaDias", "cesEmpleado") else cot_jubilacion
-            conceptos_ya_generados.add(id_concepto)
-            filas.append(make_fila(id_concepto, monto, id_institucion, afecto, cot_fmt))
+            filas.append({
+                "Fecha de proceso": fecha_proceso,
+                "Id empleado": rut,
+                "Número de contrato": 1,
+                "Id del concepto": id_concepto,
+                "Monto del concepto": monto,
+                "Afecto": afecto,
+                "Id de institución": id_institucion,
+                "Cotización de jubilación": cot_jubilacion,
+                "Días de licencias": dias_licencia,
+                "Días trabajados": dias_vacaciones,
+                "Fecha de aplicación": "x",
+                "Empresa": empresa_salida,
+                "Total de rebajas por L": rebaja_zona,
+                "Jornada": "C",
+                "Fase": 1,
+                "Días de vacaciones": dias_vacaciones,
+                "Monto Init": monto_init,
+            })
 
         # Fila adicional licenciaDias si aplica
         if dias_licencia > 0:
-            filas.append(make_fila("licenciaDias", dias_licencia, "", 0, 0, rebaja_zona_override=0))
+            filas.append({
+                "Fecha de proceso": fecha_proceso,
+                "Id empleado": rut,
+                "Número de contrato": 1,
+                "Id del concepto": "licenciaDias",
+                "Monto del concepto": dias_licencia,
+                "Afecto": "",
+                "Id de institución": "",
+                "Cotización de jubilación": dias_licencia,
+                "Días de licencias": dias_licencia,
+                "Días trabajados": dias_vacaciones,
+                "Fecha de aplicación": "x",
+                "Empresa": empresa_salida,
+                "Total de rebajas por L": rebaja_zona,
+                "Jornada": "C",
+                "Fase": 1,
+                "Días de vacaciones": dias_vacaciones,
+                "Monto Init": monto_init,
+            })
 
-    df_result = pd.DataFrame(filas)
-    # Filtrar filas de RUTs con múltiples contratos
-    if ruts_multiples and not df_result.empty:
-        df_result = df_result[~df_result["Id empleado"].astype(str).isin(ruts_multiples)]
-    return df_result, ruts_multiples
+    return pd.DataFrame(filas)
 
 def generar_excel(df_salida):
     """Genera el Excel de salida con formato."""
@@ -674,50 +572,19 @@ def generar_excel(df_salida):
 # INTERFAZ PRINCIPAL
 # ─────────────────────────────────────────────
 
-# Header con botones Limpiar y Salir
+# Header
 st.markdown("""
-<style>
-div[data-testid="stHorizontalBlock"] > div:nth-child(2) button,
-div[data-testid="stHorizontalBlock"] > div:nth-child(3) button {
-    margin-top: -58px !important;
-    height: 32px !important;
-    padding: 0 14px !important;
-    font-size: 12px !important;
-    border-radius: 6px !important;
-}
-</style>
 <div class="rex-header">
-    <div style="display:flex; align-items:center;">
-        <div class="rex-logo">Rex<span>+</span></div>
-        <div class="rex-divider-header"></div>
-        <span class="rex-title">Liquidaciones en detalle desde LRE</span>
-    </div>
     <div style="display:flex; align-items:center; gap:12px;">
-        <div class="rex-badge">PRODUCCIÓN</div>
+        <div class="rex-logo">Rex<span>+</span></div>
+        <span class="rex-title">Migración DDJJ Previred</span>
     </div>
+    <div class="rex-badge">PRODUCCIÓN</div>
 </div>
 """, unsafe_allow_html=True)
 
-_h_spacer, _h_limpiar, _h_salir = st.columns([9.2, 0.9, 0.9])
-with _h_limpiar:
-    if st.button("🧹 Limpiar", key="btn_limpiar", use_container_width=True):
-        for k in ["validacion_ejecutada", "validacion_ok", "errores_validacion",
-                  "dfs", "nombre_empresa", "excel_listo", "excel_bytes", "ruts_multiples"]:
-            if k in st.session_state:
-                del st.session_state[k]
-        st.rerun()
-with _h_salir:
-    if st.button("🚪 Salir", key="btn_salir_header", use_container_width=True):
-        st.markdown("""
-        <div style="background:#fdecea; border:1px solid #e05252; border-radius:8px;
-             padding:12px; font-size:13px; color:#a02020; margin-top:10px;">
-            <b>Sesión finalizada.</b> Puedes cerrar esta ventana.
-        </div>
-        """, unsafe_allow_html=True)
-        st.stop()
-
 # Título sección
-st.markdown('<div class="section-title">📂 Liquidaciones en detalle desde LRE</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-title">📂 Migración DDJJ Previred</div>', unsafe_allow_html=True)
 st.markdown('<div class="section-sub">Sube uno o más archivos CSV del mismo RUT empresa para generar el archivo de salida en Excel.</div>', unsafe_allow_html=True)
 
 # Cómo funciona
@@ -774,177 +641,92 @@ if archivos:
         </div>""", unsafe_allow_html=True)
         st.stop()
 
-    # Inicializar session_state
-    for key, val in [("validacion_ejecutada", False), ("validacion_ok", False),
-                     ("errores_validacion", []), ("dfs", []),
-                     ("nombre_empresa", ""), ("excel_listo", False), ("excel_bytes", None),
-                     ("ruts_multiples", [])]:
-        if key not in st.session_state:
-            st.session_state[key] = val
-
     if st.button("▶ Ejecutar validaciones"):
         todos_errores = []
         dfs = []
+
         with st.spinner("Procesando archivos..."):
             for archivo in archivos:
-                df = pd.read_csv(archivo, encoding="latin-1", sep=None, engine="python")
+                for enc in ("utf-8", "latin-1", "utf-8-sig", "cp1252"):
+                    try:
+                        archivo.seek(0)
+                        df = pd.read_csv(archivo, encoding=enc, sep=None, engine="python")
+                        break
+                    except (UnicodeDecodeError, Exception):
+                        continue
+                else:
+                    st.error(f"❌ No se pudo leer el archivo {archivo.name}. Verifica que sea un CSV válido.")
+                    st.stop()
                 df = calcular_totales(df)
                 errores = validar_cuadraturas(df, archivo.name)
                 todos_errores.extend(errores)
                 fecha_proceso = extraer_fecha_proceso(archivo.name)
                 df["_fecha_proceso"] = fecha_proceso
                 dfs.append(df)
-        st.session_state.dfs = dfs
-        st.session_state.errores_validacion = todos_errores
-        st.session_state.validacion_ok = (len(todos_errores) == 0)
-        st.session_state.validacion_ejecutada = True
-        st.session_state.nombre_empresa = archivos[0].name[:10]
-        st.session_state.excel_listo = False
-        st.session_state.excel_bytes = None
 
-    # Mostrar resultados siempre que se haya ejecutado
-    if st.session_state.get("validacion_ejecutada"):
         st.markdown('<hr class="rex-divider">', unsafe_allow_html=True)
         st.markdown("### 🔍 Resultado de validaciones")
 
-        if st.session_state.errores_validacion:
-            errores_list = st.session_state.errores_validacion
-            n_errores = len(errores_list)
-            # Agrupar por validacion para mostrar cuántos RUT fallan en cada una
-            df_err = pd.DataFrame(errores_list)
-            grupos = df_err.groupby(["Validacion", "Nombre validacion"])
-
+        if todos_errores:
             st.markdown(f"""
             <div class="alert-error">
                 ❌ <b>No se puede generar el archivo de salida.</b><br>
-                Se encontraron <b>{n_errores} registro(s) con error</b> en {grupos.ngroups} validacion(es).
+                Se encontraron <b>{len(todos_errores)} error(es)</b> de validación en los registros procesados.
             </div>""", unsafe_allow_html=True)
 
-            with st.expander("📋 Ver log de errores detallado", expanded=True):
-                for (codigo, nombre), grupo in grupos:
-                    ruts = grupo["RUT"].unique()
-                    diff_max = grupo["Diferencia"].abs().max()
-                    diff_fmt = f"${diff_max:,.0f}".replace(",", ".")
+            with st.expander("📋 Ver log de errores detallado"):
+                df_errores = pd.DataFrame(todos_errores)
+                st.dataframe(df_errores, use_container_width=True, hide_index=True)
 
-                    st.markdown(f"""
-                    <div style="border:1px solid #e05252; border-radius:10px; margin-bottom:16px; overflow:hidden;">
-                      <div style="background:#fdf0f0; padding:10px 16px; display:flex; justify-content:space-between; align-items:center;">
-                        <span style="font-weight:600; color:#a02020; font-size:14px;">&#10060; {codigo} — {nombre}</span>
-                        <span style="font-size:12px; color:#a02020;">{len(grupo)} registro(s) · mayor diferencia: {diff_fmt}</span>
-                      </div>
-                    </div>""", unsafe_allow_html=True)
-
-                    # Descripcion y formula
-                    meta = VALIDACIONES_META.get(codigo, {})
-                    st.markdown(f"""
-                    <div style="margin:-12px 0 4px 4px; padding:10px 16px; border-left:3px solid #e05252; background:transparent;">
-                      <p style="font-size:13px; color:#555; margin:0 0 6px;">{meta.get('descripcion','')}</p>
-                      <code style="font-size:12px;">{meta.get('formula','')}</code>
-                    </div>""", unsafe_allow_html=True)
-
-                    # Tabla de registros con error
-                    tabla = grupo[["RUT", "Archivo", "Valor Calculado", "Valor Control", "Diferencia"]].copy()
-                    tabla["Valor Calculado"] = tabla["Valor Calculado"].apply(lambda x: f"${x:,.0f}".replace(",","."))
-                    tabla["Valor Control"]   = tabla["Valor Control"].apply(lambda x: f"${x:,.0f}".replace(",","."))
-                    tabla["Diferencia"]      = tabla["Diferencia"].apply(lambda x: f"${x:,.0f}".replace(",","."))
-                    st.dataframe(tabla, use_container_width=True, hide_index=True)
-
-                # Botón descarga Excel del log
-                def generar_excel_log(df_e):
-                    wb = Workbook()
-                    ws = wb.active
-                    ws.title = "Log de errores"
-
-                    cols = ["Archivo","RUT","Validacion","Nombre validacion","Descripcion",
-                            "Formula aplicada","Col control CSV","Valor Calculado","Valor Control","Diferencia"]
-                    hdr_fill  = PatternFill("solid", fgColor="2d4a7a")
-                    hdr_font  = Font(bold=True, color="FFFFFF", size=10)
-                    err_fill  = PatternFill("solid", fgColor="FDECEA")
-                    num_fill  = PatternFill("solid", fgColor="FFF3F3")
-                    thin = Side(style="thin", color="CCCCCC")
-                    border = Border(left=thin, right=thin, top=thin, bottom=thin)
-
-                    ws.append(cols)
-                    for cell in ws[1]:
-                        cell.fill = hdr_fill
-                        cell.font = hdr_font
-                        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-                        cell.border = border
-
-                    for _, row in df_e.iterrows():
-                        ws.append([row.get(c, "") for c in cols])
-                        last = ws.max_row
-                        for i, cell in enumerate(ws[last]):
-                            cell.border = border
-                            cell.alignment = Alignment(vertical="center", wrap_text=(i in [4,5,6]))
-                            if cols[i] in ["Valor Calculado","Valor Control","Diferencia"]:
-                                cell.number_format = '#,##0'
-                                cell.fill = num_fill
-                            else:
-                                cell.fill = err_fill
-
-                    # Anchos de columna
-                    anchos = [28,18,12,20,45,50,40,18,18,15]
-                    for i, ancho in enumerate(anchos, 1):
-                        ws.column_dimensions[ws.cell(1, i).column_letter].width = ancho
-
-                    ws.row_dimensions[1].height = 30
-                    ws.freeze_panes = "A2"
-
-                    buf = io.BytesIO()
-                    wb.save(buf)
-                    buf.seek(0)
-                    return buf.read()
-
-                excel_log = generar_excel_log(df_err)
+                csv_log = df_errores.to_csv(index=False).encode("utf-8")
                 st.download_button(
-                    label="⬇️ Descargar log completo (.xlsx)",
-                    data=excel_log,
-                    file_name=f"log_errores_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    label="⬇️ Descargar log de errores (.csv)",
+                    data=csv_log,
+                    file_name=f"log_errores_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                    mime="text/csv"
                 )
-
-        elif st.session_state.validacion_ok and not st.session_state.excel_listo:
+        else:
             st.markdown("""
             <div class="alert-success">
                 ✅ <b>Todas las validaciones se cumplieron correctamente.</b><br>
                 Los registros de todos los archivos cuadran sin diferencias.
             </div>""", unsafe_allow_html=True)
+
             st.markdown("#### ¿Desea generar el archivo de salida?")
             col_a, col_b, col_c, _ = st.columns([1, 1, 1, 4])
-            with col_a:
-                if st.button("✅ Aceptar"):
-                    with st.spinner("Generando archivo de salida..."):
-                        df_combined = pd.concat(st.session_state.dfs, ignore_index=True)
-                        filas_salida = []
-                        todos_multiples = []
-                        for fp, grupo in df_combined.groupby("_fecha_proceso"):
-                            df_out, multiples = generar_filas_salida(grupo, fp, refs)
-                            filas_salida.append(df_out)
-                            todos_multiples.extend(multiples)
-                        df_final = pd.concat(filas_salida, ignore_index=True) if filas_salida else pd.DataFrame()
-                        st.session_state.excel_bytes = generar_excel(df_final)
-                        st.session_state.excel_listo = True
-                        st.session_state.ruts_multiples = list(set(todos_multiples))
-                    st.rerun()
-            with col_b:
-                if st.button("✖ Cancelar"):
-                    for k in ["validacion_ejecutada", "validacion_ok", "errores_validacion", "dfs", "excel_listo", "excel_bytes"]:
-                        st.session_state[k] = False if k in ["validacion_ejecutada", "validacion_ok", "excel_listo"] else [] if k in ["errores_validacion", "dfs"] else None
-                    st.rerun()
-            with col_c:
-                if st.button("🚪 Salir"):
-                    st.markdown('<div class="alert-warning">Puedes cerrar esta ventana.</div>', unsafe_allow_html=True)
-                    st.stop()
 
-        if st.session_state.excel_listo and st.session_state.excel_bytes:
-            st.markdown('<div class="alert-success">✅ Archivo generado exitosamente. Haz clic para descargar.</div>', unsafe_allow_html=True)
-            nombre_default = f"migracion_{st.session_state.nombre_empresa}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-            nombre_usuario = st.text_input("Nombre del archivo", value=nombre_default, help="Puedes personalizar el nombre. Se guardará siempre como .xlsx")
-            nombre_final = (nombre_usuario.strip() or nombre_default).replace(".xlsx", "") + ".xlsx"
-            st.download_button(
-                label="⬇️ Descargar archivo de salida (.xlsx)",
-                data=st.session_state.excel_bytes,
-                file_name=nombre_final,
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
+            with col_a:
+                aceptar = st.button("✅ Aceptar")
+            with col_b:
+                cancelar = st.button("✖ Cancelar")
+            with col_c:
+                salir = st.button("🚪 Salir")
+
+            if salir:
+                st.markdown('<div class="alert-warning">La sesión ha sido cerrada. Puedes cerrar esta ventana.</div>', unsafe_allow_html=True)
+                st.stop()
+
+            if cancelar:
+                st.markdown('<div class="alert-warning">Operación cancelada. Puedes subir nuevos archivos.</div>', unsafe_allow_html=True)
+                st.stop()
+
+            if aceptar:
+                with st.spinner("Generando archivo de salida..."):
+                    df_combined = pd.concat(dfs, ignore_index=True)
+                    filas_salida = []
+                    for _, grupo in df_combined.groupby("_fecha_proceso"):
+                        fp = grupo["_fecha_proceso"].iloc[0]
+                        df_out = generar_filas_salida(grupo, fp, refs)
+                        filas_salida.append(df_out)
+
+                    df_final = pd.concat(filas_salida, ignore_index=True) if filas_salida else pd.DataFrame()
+                    excel_bytes = generar_excel(df_final)
+
+                st.markdown('<div class="alert-success">✅ Archivo generado exitosamente.</div>', unsafe_allow_html=True)
+                nombre_empresa = archivos[0].name[:10]
+                st.download_button(
+                    label="⬇️ Descargar archivo de salida (.xlsx)",
+                    data=excel_bytes,
+                    file_name=f"migracion_{nombre_empresa}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )

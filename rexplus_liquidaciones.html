@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rex+ · Liquidaciones en detalle desde LRE</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap');
+:root{--bg:#0f0f10;--surface:#18181b;--border:#2a2a2e;--accent:#e8ff47;--accent2:#47c8ff;--text:#f0f0f2;--muted:#6b6b75;--danger:#ff6b6b;--success:#47ffb0;--warn:#ffb347}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100vh;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(232,255,71,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(232,255,71,0.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0}
+header{position:relative;z-index:1;padding:20px 40px;display:flex;align-items:center;gap:14px;border-bottom:1px solid var(--border);background:rgba(15,15,16,0.9);backdrop-filter:blur(10px)}
+.logo-mark{width:36px;height:36px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;color:#000;font-size:14px;flex-shrink:0}
+.logo-text{font-size:18px;font-weight:800;letter-spacing:-0.5px}
+.logo-text span{color:var(--accent)}
+.logo-sub{font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;margin-left:auto}
+main{position:relative;z-index:1;max-width:820px;margin:0 auto;padding:40px 24px}
+h2{font-size:13px;font-family:'DM Mono',monospace;color:var(--muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:20px}
+.upload-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:28px}
+.upload-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;cursor:pointer;transition:border-color .2s,background .2s;display:flex;flex-direction:column;gap:8px;position:relative;overflow:hidden}
+.upload-card:hover{border-color:var(--accent);background:#1e1e22}
+.upload-card.ready{border-color:var(--success)}
+.upload-card input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.upload-icon{font-size:22px}
+.upload-label{font-weight:700;font-size:13px}
+.upload-hint{font-size:11px;color:var(--muted);font-family:'DM Mono',monospace}
+.upload-status{font-size:11px;font-family:'DM Mono',monospace;color:var(--success);min-height:14px;word-break:break-all}
+.btn-run{width:100%;padding:16px;background:var(--accent);color:#000;border:none;border-radius:10px;font-family:'Syne',sans-serif;font-weight:800;font-size:15px;cursor:pointer;transition:opacity .2s,transform .1s;margin-bottom:24px;letter-spacing:0.3px}
+.btn-run:hover:not(:disabled){opacity:.9;transform:translateY(-1px)}
+.btn-run:disabled{opacity:.3;cursor:not-allowed}
+.stats-row{display:none;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.stat-box{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;text-align:center}
+.stat-num{font-size:24px;font-weight:800;font-family:'DM Mono',monospace;color:var(--accent)}
+.stat-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-top:4px}
+.log-area{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;font-family:'DM Mono',monospace;font-size:12px;max-height:320px;overflow-y:auto;display:none;margin-bottom:16px;line-height:1.7}
+.log-ok{color:var(--success)}.log-warn{color:var(--warn)}.log-err{color:var(--danger)}.log-info{color:var(--muted)}
+.btn-download{display:none;width:100%;padding:14px;background:transparent;color:var(--accent2);border:1px solid var(--accent2);border-radius:10px;font-family:'Syne',sans-serif;font-weight:700;font-size:14px;cursor:pointer;transition:background .2s;margin-bottom:10px}
+.btn-download:hover{background:rgba(71,200,255,0.08)}
+.btn-log{display:none;width:100%;padding:12px;background:transparent;color:var(--warn);border:1px solid var(--warn);border-radius:10px;font-family:'Syne',sans-serif;font-weight:700;font-size:13px;cursor:pointer;transition:background .2s;margin-bottom:10px}
+.btn-log:hover{background:rgba(255,179,71,0.08)}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo-mark">R+</div>
+  <div class="logo-text">Rex<span>+</span></div>
+  <div class="logo-sub">Liquidaciones en detalle desde LRE</div>
+</header>
+<main>
+  <h2>Archivos de entrada</h2>
+  <div class="upload-grid">
+    <label class="upload-card" id="card-lre">
+      <div class="upload-icon">📊</div>
+      <div class="upload-label">Centralización LRE</div>
+      <div class="upload-hint">Centralización_de_Sueldos_*.xlsx</div>
+      <div class="upload-status" id="status-lre"></div>
+      <input type="file" id="file-lre" accept=".xlsx,.xls">
+    </label>
+    <label class="upload-card" id="card-params">
+      <div class="upload-icon">⚙️</div>
+      <div class="upload-label">Parámetros Mensuales</div>
+      <div class="upload-hint">parametrosMensuales.xlsx</div>
+      <div class="upload-status" id="status-params"></div>
+      <input type="file" id="file-params" accept=".xlsx,.xls">
+    </label>
+    <label class="upload-card" id="card-emp">
+      <div class="upload-icon">👥</div>
+      <div class="upload-label">Listado Empleados</div>
+      <div class="upload-hint">listado_empleados.xlsx</div>
+      <div class="upload-status" id="status-emp"></div>
+      <input type="file" id="file-emp" accept=".xlsx,.xls">
+    </label>
+  </div>
+  <button class="btn-run" id="btn-run" disabled>⚡ Generar archivo Rex+</button>
+  <div class="stats-row" id="stats-row">
+    <div class="stat-box"><div class="stat-num" id="stat-emp">0</div><div class="stat-label">Empleados</div></div>
+    <div class="stat-box"><div class="stat-num" id="stat-filas">0</div><div class="stat-label">Filas generadas</div></div>
+    <div class="stat-box"><div class="stat-num" id="stat-excl">0</div><div class="stat-label">Excluidos</div></div>
+    <div class="stat-box"><div class="stat-num" id="stat-periodo">—</div><div class="stat-label">Período</div></div>
+  </div>
+  <div class="log-area" id="log-area"></div>
+  <button class="btn-download" id="btn-download">⬇ Descargar Excel de salida (.xlsx)</button>
+  <button class="btn-log" id="btn-log-download">⬇ Descargar logs de errores (.xlsx)</button>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+// ─── TABLAS INCRUSTADAS ───────────────────────────────────────────────────────
+const EQUIV_CONCEPTOS = [
+  { col:"S. Base a Pagar (x Mes)",                         id:"sueldoBase" },
+  { col:"Gratificación",                                   id:"gratificacion" },
+  { col:"Tratos",                                          id:"Tratos" },
+  { col:"Bono Certificación",                              id:"BonoCertificacion" },
+  { col:"Bono Administrativo",                             id:"BonoAdministracion" },
+  { col:"Horas extras",                                    id:"horasEx50" },
+  { col:"bono produccion",                                 id:"BonoProduccion" },
+  { col:"Movilización esp vendimia",                       id:"movilizacion" },
+  { col:"Colacion. Esp. Vendimia",                         id:"colacion" },
+  { col:"$Total Asignación Familiar",                      id:"asignFamiliar" },
+  { col:"Cotización AFP",                                  id:"afp" },
+  { col:"ACHS 2,29%",                                      id:"mutual" },
+  { col:"7% Salud",                                        id:"isapre" },
+  { col:"Anticipos",                                       id:"anticipos" },
+  { col:"Préstamo CCAF",                                   id:"prestamoCCAF" },
+  { col:"seguro de vida caja los andes",                   id:"segVidaCCLA" },
+  { col:"Aporte hogar de cristo",                          id:"hogarCristo" },
+  { col:"Seguro Zurich",                                   id:"segZurich" },
+  { col:"descuento gas",                                   id:"descGas" },
+  { col:"Descuento luz",                                   id:"descLuz" },
+  { col:"Descuento zapatos",                               id:"descZapatos" },
+  { col:"Descuento prestamo empresa",                      id:"descPrestEmp" },
+  { col:"Descuento ahorro CCLA",                           id:"descAhorroCCLA" },
+  { col:"Impuesto Único",                                  id:"impuesto" },
+  { col:"Seguro de CesantÍa de Cargo Trabajador",         id:"cesEmpleado" },
+  { col:"Seguro de CesantÍa de Cargo Empresa",            id:"cesAporteSol" },
+  { col:"Cotización AFP Seguro Invalidez y Sobrevivencia", id:"sis" },
+  { col:"Seguro Social 0,9%",                              id:"cesAporteCi" },
+  { col:"Total Cargas atrasadas",                          id:"totalCargasAtr" },
+  { col:"Descuento Arriendo casa",                         id:"descArriendo" },
+  { col:"Desc Pensión Alimentos",                          id:"descPensAlim" },
+  { col:"Aporte Solidario trabajadores",                   id:"aporteSolidario" },
+];
+
+const EQUIV_AFP = {
+  "PROVIDA":    { id_afp:"provida",   cot_afp:11.45 },
+  "HABITAT":    { id_afp:"habitat",   cot_afp:11.27 },
+  "CUPRUM":     { id_afp:"cuprum",    cot_afp:11.44 },
+  "CAPITAL":    { id_afp:"capital",   cot_afp:11.44 },
+  "MODELO":     { id_afp:"modelo",    cot_afp:10.58 },
+  "PLAN VITAL": { id_afp:"planvital", cot_afp:11.45 },
+  "UNO":        { id_afp:"uno",       cot_afp:10.49 },
+  "INP":        { id_afp:"inp",       cot_afp:0 },
+  "NO COTIZAN": { id_afp:"",          cot_afp:0 },
+};
+
+const AFECTO_HAB_IMPON = new Set(["afp","isapre","cesEmpleado","mutual","sis","cesAporteSol","cesAporteCi"]);
+const INST_AFP = new Set(["afp","cesEmpleado","sis","cesAporteSol","cesAporteCi"]);
+
+const OUTPUT_COLS = [
+  "Fecha de proceso","Id empleado","Número de contrato",
+  "Id del concepto","Monto del concepto","Afecto",
+  "Id de institución","Cotización de jubilación",
+  "Días de licencias","Días trabajados",
+  "Fecha de aplicación","Empresa",
+  "Rentas no gravadas","Rebaja por zona extrema",
+  "Jornada","Total de rebajas por LLSS",
+  "Días de vacaciones","Monto Init","Fase"
+];
+
+// ─── ESTADO ───────────────────────────────────────────────────────────────────
+let fileLRE=null, fileParams=null, fileEmp=null, lreFileName='';
+let xlsxResult=null;
+let logsData={ contratos:[], haberes:[], descuentos:[], liquido:[] };
+
+// ─── HELPERS ──────────────────────────────────────────────────────────────────
+const logArea = document.getElementById('log-area');
+function log(msg, type='info'){
+  const d=document.createElement('div');
+  d.className='log-'+type;
+  d.textContent=(type==='ok'?'✓ ':type==='warn'?'⚠ ':type==='err'?'✗ ':'  ')+msg;
+  logArea.appendChild(d); logArea.scrollTop=logArea.scrollHeight;
+}
+
+const num = v => { const n=parseFloat(String(v).replace(/[^0-9.\-]/g,'')); return isNaN(n)?0:Math.round(n); };
+const str = v => (v===undefined||v===null)?'':String(v).trim();
+
+function extractPeriodo(fname){
+  const meses={enero:'01',febrero:'02',marzo:'03',abril:'04',mayo:'05',junio:'06',
+    julio:'07',agosto:'08',septiembre:'09',octubre:'10',noviembre:'11',diciembre:'12'};
+  const lower=fname.toLowerCase();
+  for(const [m,n] of Object.entries(meses)){
+    const match=lower.match(new RegExp(m+'[_\\s]+(\\d{4})'));
+    if(match) return match[1]+'-'+n;
+  }
+  return 'desconocido';
+}
+
+function sheetToRows(wb,idx=0){
+  const ws=wb.Sheets[wb.SheetNames[idx]];
+  return XLSX.utils.sheet_to_json(ws,{defval:''});
+}
+
+function readFile(file){
+  return new Promise((res,rej)=>{
+    const r=new FileReader();
+    r.onload=e=>res(new Uint8Array(e.target.result));
+    r.onerror=()=>rej(new Error('Error leyendo '+file.name));
+    r.readAsArrayBuffer(file);
+  });
+}
+
+// ─── UPLOADS ─────────────────────────────────────────────────────────────────
+function setupUpload(inputId,cardId,statusId,setter,nameSetter){
+  document.getElementById(inputId).addEventListener('change',e=>{
+    const f=e.target.files[0]; if(!f) return;
+    setter(f); if(nameSetter) nameSetter(f.name);
+    document.getElementById(statusId).textContent=f.name;
+    document.getElementById(cardId).classList.add('ready');
+    checkReady();
+  });
+}
+setupUpload('file-lre','card-lre','status-lre',f=>{fileLRE=f;},n=>{lreFileName=n;});
+setupUpload('file-params','card-params','status-params',f=>{fileParams=f;});
+setupUpload('file-emp','card-emp','status-emp',f=>{fileEmp=f;});
+function checkReady(){ document.getElementById('btn-run').disabled=!(fileLRE&&fileParams&&fileEmp); }
+
+// ─── PROCESO PRINCIPAL ────────────────────────────────────────────────────────
+document.getElementById('btn-run').addEventListener('click', async ()=>{
+  xlsxResult=null;
+  logsData={contratos:[],haberes:[],descuentos:[],liquido:[]};
+  logArea.innerHTML='';
+  logArea.style.display='block';
+  document.getElementById('stats-row').style.display='grid';
+  document.getElementById('btn-download').style.display='none';
+  document.getElementById('btn-log-download').style.display='none';
+
+  try {
+    log('Leyendo archivos...','info');
+    const [bytesLRE,bytesParams,bytesEmp] = await Promise.all([
+      readFile(fileLRE),readFile(fileParams),readFile(fileEmp)
+    ]);
+
+    const wbLRE    = XLSX.read(bytesLRE,   {type:'array'});
+    const wbParams = XLSX.read(bytesParams,{type:'array'});
+    const wbEmp    = XLSX.read(bytesEmp,   {type:'array'});
+
+    const lreRows = sheetToRows(wbLRE,0);
+    log(`LRE: ${lreRows.length} registros`,'ok');
+
+    // Parámetros — buscar hoja con mes_Proc
+    let paramRows=null;
+    for(const sn of wbParams.SheetNames){
+      const rows=XLSX.utils.sheet_to_json(wbParams.Sheets[sn],{defval:''});
+      if(rows.length>0 && rows[0]['mes_Proc']!==undefined){paramRows=rows;break;}
+    }
+    if(!paramRows) paramRows=sheetToRows(wbParams,0);
+    log(`Parámetros: ${paramRows.length} meses`,'ok');
+
+    const empRows = sheetToRows(wbEmp,0);
+    log(`Empleados: ${empRows.length} registros`,'ok');
+
+    // Período
+    const periodo = extractPeriodo(lreFileName);
+    log(`Período: ${periodo}`,'ok');
+    document.getElementById('stat-periodo').textContent=periodo;
+
+    // topeSalud
+    const paramMes = paramRows.find(r=>str(r['mes_Proc'])===periodo);
+    const topeSalud = paramMes ? num(paramMes['topeSalud_pesos']) : 0;
+    if(!paramMes) log(`No se encontró período ${periodo} en parámetros — topeSalud=0`,'warn');
+    else log(`topeSalud_pesos = ${topeSalud}`,'ok');
+
+    // Mapa empleados por RUT
+    const empSample = Object.keys(empRows[0]||{});
+    const findCol = (candidates) => empSample.find(k=>candidates.some(c=>k.trim().toLowerCase()===c.toLowerCase())) || candidates[0];
+    const COL_RUT_EMP    = findCol(['RUT','Rut','rut']);
+    const COL_NOMBRE_EMP = findCol(['NOMBRE','Nombre','nombre']);
+    const COL_CONTRATO   = findCol(['Contrato','contrato','CONTRATO','Número de contrato']);
+    const COL_FEC_INI    = findCol(['Fecha Inicio contrato','Fecha inicio','fecha_inicio','FechaInicio']);
+
+    const empByRut={};
+    for(const e of empRows){
+      const rut=str(e[COL_RUT_EMP]); if(!rut) continue;
+      if(!empByRut[rut]) empByRut[rut]=[];
+      empByRut[rut].push(e);
+    }
+
+    // Columnas LRE
+    const allCols = Object.keys(lreRows[0]||{});
+    const getCol = (row,colName) => {
+      const key=allCols.find(k=>k.trim()===colName.trim());
+      return key!==undefined ? row[key] : '';
+    };
+
+    const outputRows=[];
+    let totalEmp=0, totalExcl=0;
+    let abortarPorHaberes=false;
+
+    // ── POR CADA EMPLEADO ─────────────────────────────────────────────────────
+    for(const row of lreRows){
+      const rut=str(getCol(row,'RUT')); if(!rut) continue;
+      totalEmp++;
+      const nombre=str(getCol(row,'NOMBRE'));
+
+      // VALIDACIÓN 1: Diferencia de Haberes
+      const sumHab =
+        num(getCol(row,'S. Base a Pagar (x Mes)')) +
+        num(getCol(row,'Gratificación')) +
+        num(getCol(row,'Tratos')) +
+        num(getCol(row,'Bono Certificación')) +
+        num(getCol(row,'Bono Administrativo')) +
+        num(getCol(row,'Horas extras')) +
+        num(getCol(row,'bono produccion')) +
+        num(getCol(row,'Movilización')) +
+        num(getCol(row,'Movilización esp vendimia')) +
+        num(getCol(row,'Colacion. Esp. Vendimia')) +
+        num(getCol(row,'$Total Asignación Familiar'));
+      const totalHaberes = num(getCol(row,'Total Haberes'));
+      if(sumHab !== totalHaberes){
+        logsData.haberes.push({RUT:rut,NOMBRE:nombre,'Suma Haberes calculada':sumHab,'Total Haberes en archivo':totalHaberes,'Diferencia':sumHab-totalHaberes});
+        abortarPorHaberes=true;
+        continue;
+      }
+
+      // VALIDACIÓN 2: Diferencia de Descuentos
+      const sumDesc =
+        num(getCol(row,'Cotización AFP')) +
+        num(getCol(row,'7% Salud')) +
+        num(getCol(row,'TOTAL UF ISAPRE BANMEDICA')) +
+        num(getCol(row,'Desc Adicional Salud')) +
+        num(getCol(row,'Anticipos')) +
+        num(getCol(row,'Préstamo CCAF')) +
+        num(getCol(row,'seguro de vida caja los andes')) +
+        num(getCol(row,'Aporte hogar de cristo')) +
+        num(getCol(row,'Seguro Zurich')) +
+        num(getCol(row,'descuento gas')) +
+        num(getCol(row,'Descuento luz')) +
+        num(getCol(row,'Descuento zapatos')) +
+        num(getCol(row,'Descuento prestamo empresa')) +
+        num(getCol(row,'Descuento ahorro CCLA')) +
+        num(getCol(row,'Impuesto Único')) +
+        num(getCol(row,'% aporte trabajador seguro cesantía')) +
+        num(getCol(row,'Seguro de CesantÍa de Cargo Trabajador'));
+      const totalDesc = num(getCol(row,'Total Desc'));
+      if(sumDesc !== totalDesc){
+        logsData.descuentos.push({RUT:rut,NOMBRE:nombre,'Suma Descuentos calculada':sumDesc,'Total Desc en archivo':totalDesc,'Diferencia':sumDesc-totalDesc});
+        totalExcl++; continue;
+      }
+
+      // VALIDACIÓN 3: Diferencia en el Líquido
+      const liquidoCalc = totalHaberes - totalDesc;
+      const totalPagar  = num(getCol(row,'Total a Pagar'));
+      if(liquidoCalc !== totalPagar){
+        logsData.liquido.push({RUT:rut,NOMBRE:nombre,'Total Haberes':totalHaberes,'Total Desc':totalDesc,'Líquido calculado':liquidoCalc,'Total a Pagar en archivo':totalPagar,'Diferencia':liquidoCalc-totalPagar});
+        totalExcl++; continue;
+      }
+
+      // NÚMERO DE CONTRATO
+      const empMatches = empByRut[rut]||[];
+      if(empMatches.length>1){
+        for(const em of empMatches){
+          logsData.contratos.push({RUT:rut,NOMBRE:str(em[COL_NOMBRE_EMP]),'Fecha Inicio contrato':str(em[COL_FEC_INI]),Contrato:str(em[COL_CONTRATO])});
+        }
+        totalExcl++; continue;
+      }
+      const nroContrato = empMatches.length===1 ? str(empMatches[0][COL_CONTRATO]) : '';
+
+      // VALORES AUXILIARES
+      const totalHabImpon = num(getCol(row,'Total Hab. Imponibles'));
+      const subTotal      = num(getCol(row,'SUB TOTAL'));
+      const cotAFP        = num(getCol(row,'Cotización AFP'));
+      const segCesantia   = num(getCol(row,'Seguro de CesantÍa de Cargo Trabajador'));
+      const salud7        = num(getCol(row,'7% Salud'));
+      const descAdicSalud = num(getCol(row,'Desc Adicional Salud'));
+      const diasTrab      = num(getCol(row,'dias trabajados'));
+      const sueldoBase    = num(getCol(row,'S. Base a Pagar (x Mes)'));
+      const codigoAFP     = str(getCol(row,'Código de AFP')).toUpperCase().trim();
+      const instSalud     = str(getCol(row,'inst_salud'));
+
+      const afpData = EQUIV_AFP[codigoAFP]||{id_afp:'',cot_afp:0};
+
+      // Descuento salud para afecto impuesto
+      const descSaludAfecto = descAdicSalud===0 ? salud7 : Math.min(descAdicSalud,topeSalud);
+      const afectoImpuesto  = totalHabImpon - cotAFP - segCesantia - descSaludAfecto;
+      const montoInit       = diasTrab>0 ? Math.round((sueldoBase/diasTrab)*30) : 0;
+
+      // PIVOTAR CONCEPTOS
+      for(const ec of EQUIV_CONCEPTOS){
+        const colName    = ec.col.trim();
+        const idConcepto = ec.id;
+
+        let monto;
+        if(idConcepto==='mutual'){
+          monto = num(getCol(row,'ACHS 2,29%'));
+        } else if(idConcepto==='isapre'){
+          monto = num(getCol(row,'7% Salud')) + num(getCol(row,'Desc Adicional Salud'));
+        } else {
+          monto = num(getCol(row,colName));
+        }
+        if(monto===0) continue;
+
+        // Afecto
+        let afecto='';
+        if(idConcepto==='totalesEmpl')       afecto=subTotal;
+        else if(idConcepto==='impuesto')      afecto=afectoImpuesto;
+        else if(AFECTO_HAB_IMPON.has(idConcepto)) afecto=totalHabImpon;
+
+        // Id institución
+        let idInst='';
+        if(INST_AFP.has(idConcepto))         idInst=afpData.id_afp;
+        else if(idConcepto==='isapre')        idInst=instSalud;
+        else if(idConcepto==='mutual')        idInst='achs';
+
+        // Cotización jubilación
+        let cotJub='';
+        if(INST_AFP.has(idConcepto)&&afpData.id_afp) cotJub=afpData.cot_afp;
+        else if(idConcepto==='mutual') cotJub=2.9;
+
+        const outRow={};
+        for(const c of OUTPUT_COLS) outRow[c]='';
+        outRow['Fecha de proceso']          = periodo;
+        outRow['Id empleado']               = rut;
+        outRow['Número de contrato']        = nroContrato;
+        outRow['Id del concepto']           = idConcepto;
+        outRow['Monto del concepto']        = monto;
+        outRow['Afecto']                    = afecto!==''?afecto:'';
+        outRow['Id de institución']         = idInst;
+        outRow['Cotización de jubilación']  = cotJub!==''?cotJub:'';
+        outRow['Días de licencias']         = 0;
+        outRow['Días trabajados']           = diasTrab;
+        outRow['Fecha de aplicación']       = 'x';
+        outRow['Empresa']                   = 1;
+        outRow['Rentas no gravadas']        = totalHaberes;
+        outRow['Rebaja por zona extrema']   = '';
+        outRow['Jornada']                   = 'C';
+        outRow['Total de rebajas por LLSS'] = '';
+        outRow['Días de vacaciones']        = '';
+        outRow['Monto Init']                = montoInit;
+        outRow['Fase']                      = 1;
+        outputRows.push(outRow);
+      }
+    } // fin loop empleados
+
+    // Si validación 1 falló → abortar todo
+    if(abortarPorHaberes){
+      log(`PROCESO DETENIDO — ${logsData.haberes.length} empleado(s) con diferencias en haberes. Corrija el archivo y vuelva a procesar.`,'err');
+      document.getElementById('stat-emp').textContent=totalEmp;
+      document.getElementById('stat-filas').textContent=0;
+      document.getElementById('stat-excl').textContent=logsData.haberes.length;
+      document.getElementById('btn-log-download').style.display='block';
+      return;
+    }
+
+    // Estadísticas
+    document.getElementById('stat-emp').textContent=totalEmp;
+    document.getElementById('stat-filas').textContent=outputRows.length;
+    document.getElementById('stat-excl').textContent=totalExcl;
+    log(`Empleados procesados: ${totalEmp}`,'info');
+    log(`Filas generadas: ${outputRows.length}`,'ok');
+    if(totalExcl>0) log(`Registros excluidos: ${totalExcl}`,'warn');
+
+    // Generar Excel salida
+    const wsData=[OUTPUT_COLS];
+    for(const r of outputRows) wsData.push(OUTPUT_COLS.map(c=>r[c]===''?'':r[c]));
+    const wsOut=XLSX.utils.aoa_to_sheet(wsData);
+    const wbOut=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wbOut,wsOut,'Liquidaciones');
+    xlsxResult=XLSX.write(wbOut,{bookType:'xlsx',type:'array'});
+    log('Archivo Excel generado correctamente','ok');
+    document.getElementById('btn-download').style.display='block';
+
+    const hayLogs=logsData.contratos.length+logsData.descuentos.length+logsData.liquido.length>0;
+    if(hayLogs){
+      log(`Logs generados — contratos múltiples:${logsData.contratos.length}, desc:${logsData.descuentos.length}, líquido:${logsData.liquido.length}`,'warn');
+      document.getElementById('btn-log-download').style.display='block';
+    }
+
+  } catch(err){
+    log('ERROR: '+err.message,'err');
+    console.error(err);
+  }
+});
+
+// ─── DESCARGAR EXCEL SALIDA ───────────────────────────────────────────────────
+document.getElementById('btn-download').addEventListener('click',()=>{
+  if(!xlsxResult) return;
+  const blob=new Blob([xlsxResult],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  const p=extractPeriodo(lreFileName);
+  a.href=url; a.download=`rexplus_liquidaciones_${p}.xlsx`; a.click();
+  URL.revokeObjectURL(url);
+  log(`Descargado: rexplus_liquidaciones_${p}.xlsx`,'ok');
+});
+
+// ─── DESCARGAR LOGS ───────────────────────────────────────────────────────────
+document.getElementById('btn-log-download').addEventListener('click',()=>{
+  const wbLog=XLSX.utils.book_new();
+  if(logsData.haberes.length>0)    XLSX.utils.book_append_sheet(wbLog,XLSX.utils.json_to_sheet(logsData.haberes),'Diferencia de Haberes');
+  if(logsData.descuentos.length>0) XLSX.utils.book_append_sheet(wbLog,XLSX.utils.json_to_sheet(logsData.descuentos),'Diferencia en Descuentos');
+  if(logsData.liquido.length>0)    XLSX.utils.book_append_sheet(wbLog,XLSX.utils.json_to_sheet(logsData.liquido),'Diferencia en el Liquido');
+  if(logsData.contratos.length>0)  XLSX.utils.book_append_sheet(wbLog,XLSX.utils.json_to_sheet(logsData.contratos),'Contratos Multiples');
+  const out=XLSX.write(wbLog,{bookType:'xlsx',type:'array'});
+  const blob=new Blob([out],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  const p=extractPeriodo(lreFileName);
+  a.href=url; a.download=`rexplus_logs_${p}.xlsx`; a.click();
+  URL.revokeObjectURL(url);
+  log('Logs descargados','ok');
+});
+</script>
+</body>
+</html>
