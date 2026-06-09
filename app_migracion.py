@@ -255,6 +255,7 @@ def cargar_referencias():
     refs = {}
     archivos = {
         "equiv_conceptos": "equiv_conceptos.xlsx",
+        "listado_empleados": "listado_empleados.xlsx",
         "listado_empresas": "listado_empresas.xlsx",
         "inst_mutuales": "inst_mutuales.xlsx",
         "inst_cajas": "inst_cajas.xlsx",
@@ -617,7 +618,7 @@ refs, errores_refs = cargar_referencias()
 if errores_refs:
     st.markdown(f'<div class="alert-warning">⚠️ Archivos de referencia no encontrados en <b>/data</b>: {", ".join(errores_refs)}</div>', unsafe_allow_html=True)
 
-# Upload CSV
+# Upload
 st.markdown("### 📤 Subir archivos CSV")
 archivos = st.file_uploader(
     "Selecciona uno o más archivos CSV de Previred",
@@ -625,20 +626,6 @@ archivos = st.file_uploader(
     accept_multiple_files=True,
     help="Los archivos deben corresponder al mismo RUT empresa (primeros 10 caracteres del nombre)"
 )
-
-# Upload listado_empleados
-st.markdown("### 👥 Listado de empleados del período")
-archivo_empleados = st.file_uploader(
-    "Sube el archivo listado_empleados.xlsx correspondiente al período a procesar",
-    type=["xlsx"],
-    accept_multiple_files=False,
-    help="Este archivo cambia en cada proceso. Debe contener las columnas: Rut, Empresa, AFP, Isapre"
-)
-
-if archivo_empleados:
-    st.markdown(f'<div class="alert-success">✅ Listado de empleados cargado: <b>{archivo_empleados.name}</b></div>', unsafe_allow_html=True)
-else:
-    st.markdown('<div class="alert-warning">⚠️ Debes subir el listado de empleados del período para poder ejecutar el proceso.</div>', unsafe_allow_html=True)
 
 if archivos:
     st.markdown(f'<div class="alert-success">✅ {len(archivos)} archivo(s) cargado(s): {", ".join([f.name for f in archivos])}</div>', unsafe_allow_html=True)
@@ -654,20 +641,22 @@ if archivos:
         </div>""", unsafe_allow_html=True)
         st.stop()
 
-    if not archivo_empleados:
-        st.info("Sube el listado de empleados del período para habilitar el proceso.")
-        st.stop()
-
     if st.button("▶ Ejecutar validaciones"):
         todos_errores = []
         dfs = []
 
-        # Inyectar listado_empleados en refs
-        refs["listado_empleados"] = pd.read_excel(archivo_empleados)
-
         with st.spinner("Procesando archivos..."):
             for archivo in archivos:
-                df = pd.read_csv(archivo, encoding="utf-8", sep=None, engine="python")
+                for enc in ("utf-8", "latin-1", "utf-8-sig", "cp1252"):
+                    try:
+                        archivo.seek(0)
+                        df = pd.read_csv(archivo, encoding=enc, sep=None, engine="python")
+                        break
+                    except (UnicodeDecodeError, Exception):
+                        continue
+                else:
+                    st.error(f"❌ No se pudo leer el archivo {archivo.name}. Verifica que sea un CSV válido.")
+                    st.stop()
                 df = calcular_totales(df)
                 errores = validar_cuadraturas(df, archivo.name)
                 todos_errores.extend(errores)
