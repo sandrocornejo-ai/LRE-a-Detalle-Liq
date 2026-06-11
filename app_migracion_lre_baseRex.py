@@ -435,7 +435,7 @@ if archivo_lre:
 
     # Filtro por mes
     if COL_FECHA_PROCESO in df_entrada.columns:
-        meses_disponibles = sorted(df_entrada[COL_FECHA_PROCESO].unique().tolist())
+        meses_disponibles = sorted(df_entrada[COL_FECHA_PROCESO].astype(str).unique().tolist())
         meses_sel = st.multiselect(
             "Filtrar por mes(es) a procesar (vacío = todos)",
             options=meses_disponibles,
