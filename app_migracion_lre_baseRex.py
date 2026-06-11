@@ -236,8 +236,9 @@ def transformar_lre(df_entrada, equiv_dict_raw, df_params):
         rebaja_llss_isapre = min(monto_isapre, tope_salud) if tope_salud > 0 else monto_isapre
         afecto_isapre = total_hab_afectos - rebaja_llss_isapre
 
-        # Rentas no gravadas (para impuesto)
+        # Rentas no gravadas (para impuesto y totalesEmpl)
         rentas_no_gravadas = sum_codes(row, lre_cols, CODIGOS_RENTAS_NO_GRAVADAS)
+        afecto_totales = total_hab_afectos + rentas_no_gravadas
 
         # ── Acumular montos por concepto ──
         conceptos_acumulados = {}
@@ -275,6 +276,8 @@ def transformar_lre(df_entrada, equiv_dict_raw, df_params):
                 afecto = round(afecto_ces)
             elif id_concepto == "isapre":
                 afecto = round(afecto_isapre)
+            elif id_concepto == "totalesEmpl":
+                afecto = round(afecto_totales)
             else:
                 afecto = ""
 
@@ -295,7 +298,7 @@ def transformar_lre(df_entrada, equiv_dict_raw, df_params):
                 cot_jub = ""
 
             # ── Total rebajas LLSS ──
-            rebaja_llss = round(rebaja_llss_isapre) if id_concepto == "isapre" else 0
+            rebaja_llss = round(rebaja_llss_isapre) if id_concepto == "impuesto" else 0
 
             # ── Rentas no gravadas ──
             rng = round(rentas_no_gravadas) if id_concepto == "impuesto" else 0
