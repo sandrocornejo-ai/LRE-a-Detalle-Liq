@@ -230,6 +230,7 @@ def transformar_lre(df_entrada, equiv_dict_raw, df_params):
 
         afecto_afp = min(total_hab_afectos, tope_afp) if tope_afp > 0 else total_hab_afectos
         afecto_ces = min(total_hab_afectos, tope_ces) if tope_ces > 0 else total_hab_afectos
+        afecto_salud = min(total_hab_afectos, tope_salud) if tope_salud > 0 else total_hab_afectos
 
         # Isapre: monto = col(3143) + col(3144)
         monto_isapre = sum(safe_num(row.get(c, 0)) for c in lre_cols if extraer_codigo(c) in ("3143", "3144"))
@@ -275,7 +276,7 @@ def transformar_lre(df_entrada, equiv_dict_raw, df_params):
             elif id_concepto in CONCEPTOS_AFECTO_CES:
                 afecto = round(afecto_ces)
             elif id_concepto == "isapre":
-                afecto = round(afecto_isapre)
+                afecto = round(afecto_salud)
             elif id_concepto == "totalesEmpl":
                 afecto = round(afecto_totales)
             else:
@@ -408,7 +409,7 @@ equiv_dict = cargar_equiv_conceptos()
 df_params  = cargar_parametros()
 
 if not equiv_dict:
-    st.markdown('<div class="alert-warning">⚠️ No se encontró <b>data/equiv_conceptos.xlsx</b>.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="alert-warning">⚠️ No se encontró <b>data/equiv_conceptos_ab_rex.xlsx</b>.</div>', unsafe_allow_html=True)
 if df_params.empty:
     st.markdown('<div class="alert-warning">⚠️ No se encontró <b>data/parametrosMesuales.xlsx</b>.</div>', unsafe_allow_html=True)
 
