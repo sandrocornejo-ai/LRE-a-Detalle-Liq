@@ -591,6 +591,18 @@ if archivo_lre:
         df_entrada = pd.read_excel(archivo_lre, sheet_name=0, dtype={COL_FECHA_PROCESO: str})
         df_entrada[COL_FECHA_PROCESO] = df_entrada[COL_FECHA_PROCESO].astype(str).str.strip()
 
+        # Limpiar columnas numéricas: convertir textos con puntos de miles a número
+        # Solo columnas desde la O en adelante (índice 14) para no tocar RUT, AFP, fechas, etc.
+        for col in df_entrada.columns[14:]:
+            if df_entrada[col].dtype == object:
+                try:
+                    converted = df_entrada[col].astype(str).str.strip().str.replace(r"\.", "", regex=True)
+                    numeric = pd.to_numeric(converted, errors="coerce")
+                    if numeric.notna().sum() > len(df_entrada) * 0.5:
+                        df_entrada[col] = numeric.fillna(0)
+                except Exception:
+                    pass
+
         # Limpiar columnas O a BY (índices 14 a 76): dejar solo números enteros
         n_meses = df_entrada[COL_FECHA_PROCESO].nunique() if COL_FECHA_PROCESO in df_entrada.columns else "N/D"
         st.caption(f"📊 {len(df_entrada):,} filas × {len(df_entrada.columns)} columnas | Meses: {n_meses}")
