@@ -112,9 +112,11 @@ COD_TOTAL_LIQUIDO = "5501"
 # ─────────────────────────────────────────────
 
 def extraer_codigo(nombre):
-    """Extrae el código numérico entre paréntesis: 'Sueldo(2101)' → '2101'."""
-    m = re.search(r'\((\d+)\)', str(nombre))
-    return m.group(1) if m else None
+    """Extrae código numérico de 4+ dígitos entre paréntesis.
+    Soporta: Sueldo(2101) y Viáticos (cód 2303)."""
+    # Buscar todos los números de 4+ dígitos seguidos de )
+    m = re.findall(r"(\d{4,})\)", str(nombre))
+    return m[-1] if m else None
 
 def parse_pct(val):
     """Convierte porcentaje con coma decimal ('11,44') a float."""
