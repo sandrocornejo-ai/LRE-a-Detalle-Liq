@@ -118,6 +118,15 @@ def extraer_codigo(nombre):
     m = re.findall(r"(\d{4,})\)", str(nombre))
     return m[-1] if m else None
 
+def round_int(val):
+    """Convierte a entero redondeado, sin decimales."""
+    if val == "" or val is None:
+        return ""
+    try:
+        return int(round(float(val)))
+    except:
+        return 0
+
 def parse_pct(val):
     """Convierte porcentaje con coma decimal ('11,44') a float."""
     if val is None:
@@ -229,15 +238,15 @@ def validar_cuadre(df_entrada):
 
         # Buscar columna de total líquido por código 5501
         liquido_inf   = next((safe_num(row.get(c, 0)) for c in lre_cols if extraer_codigo(c) == COD_TOTAL_LIQUIDO), 0)
-        diferencia    = round(liquido_calc) - round(liquido_inf)
+        diferencia    = round_int(liquido_calc) - round_int(liquido_inf)
 
         registros.append({
             "hab_afectos":  hab_afectos,
             "hab_exentos":  hab_exentos,
             "desc_legales": desc_legales,
             "otros_desc":   otros_desc,
-            "liq_calc":     round(liquido_calc),
-            "liq_inf":      round(liquido_inf),
+            "liq_calc":     round_int(liquido_calc),
+            "liq_inf":      round_int(liquido_inf),
             "diferencia":   diferencia,
             "descuadrado":  diferencia != 0,
         })
@@ -379,7 +388,7 @@ def transformar_lre(df_entrada, equiv_dict_raw, df_params):
                 "Rebaja por zona extrema":   0,
                 "Jornada":                   "C",
                 "Días de vacaciones":        0,
-                "Monto Init":                monto_init,
+                "Monto Init":                round_int(monto_init),
                 "Fase":                      1,
             })
 
@@ -408,13 +417,13 @@ def transformar_lre(df_entrada, equiv_dict_raw, df_params):
 
             # ── Afecto ──
             if id_concepto in CONCEPTOS_AFECTO_AFP:
-                afecto = round(afecto_afp)
+                afecto = round_int(afecto_afp)
             elif id_concepto in CONCEPTOS_AFECTO_CES:
-                afecto = round(afecto_ces)
+                afecto = round_int(afecto_ces)
             elif id_concepto == "impuesto":
-                afecto = round(total_hab_afectos - rebaja_llss_isapre)
+                afecto = round_int(total_hab_afectos - rebaja_llss_isapre)
             elif id_concepto == "totalesEmpl":
-                afecto = round(afecto_totales)
+                afecto = round_int(afecto_totales)
             else:
                 afecto = ""
 
@@ -422,7 +431,7 @@ def transformar_lre(df_entrada, equiv_dict_raw, df_params):
             if id_concepto == "afp":
                 cot_jub = pct_afp
             elif id_concepto == "isapre":
-                cot_jub = round(monto_isapre)
+                cot_jub = round_int(monto_isapre)
             elif id_concepto == "cesEmpleado":
                 cot_jub = 0.6
             elif id_concepto == "sis":
@@ -435,17 +444,17 @@ def transformar_lre(df_entrada, equiv_dict_raw, df_params):
                 cot_jub = ""
 
             # ── Total rebajas LLSS ──
-            rebaja_llss = round(rebaja_llss_isapre) if id_concepto == "impuesto" else 0
+            rebaja_llss = round_int(rebaja_llss_isapre) if id_concepto == "impuesto" else 0
 
             # ── Rentas no gravadas ──
-            rng = round(rentas_no_gravadas) if id_concepto == "impuesto" else 0
+            rng = round_int(rentas_no_gravadas) if id_concepto == "impuesto" else 0
 
             filas_salida.append({
                 "Fecha de proceso":          mes_proc,
                 "Id empleado":               id_empleado,
                 "Número de contrato":        nro_cont,
                 "Id del concepto":           id_concepto,
-                "Monto del concepto":        round(monto),
+                "Monto del concepto":        round_int(monto),
                 "Afecto":                    afecto,
                 "Id de institución":         id_inst,
                 "Cotización de jubilación":  cot_jub,
@@ -458,7 +467,7 @@ def transformar_lre(df_entrada, equiv_dict_raw, df_params):
                 "Rebaja por zona extrema":   round(safe_num(next((row.get(c,0) for c in lre_cols if extraer_codigo(c)=="3167"), 0))) if id_concepto=="zonaExtrema" else 0,
                 "Jornada":                   "C",
                 "Días de vacaciones":        0,
-                "Monto Init":                monto_init,
+                "Monto Init":                round_int(monto_init),
                 "Fase":                      1,
             })
 
