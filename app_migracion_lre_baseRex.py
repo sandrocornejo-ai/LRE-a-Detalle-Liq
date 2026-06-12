@@ -85,7 +85,7 @@ CODIGOS_RENTAS_NO_GRAVADAS = {
     "2310","2311","2312","2313","2314","2315","2316","2331","2417","2418"
 }
 
-CONCEPTOS_AFECTO_AFP = {"afp","trabajoPesaEmpl","trabajoPesa","sis","mutual"}
+CONCEPTOS_AFECTO_AFP = {"afp","isapre","trabajoPesaEmpl","trabajoPesa","sis","mutual"}
 CONCEPTOS_AFECTO_CES = {"cesEmpleado","cesAporteCi","cesAporteSol"}
 CONCEPTOS_SIEMPRE    = {"impuesto","cesEmpleado"}   # incluir aunque monto = 0
 
@@ -275,8 +275,6 @@ def transformar_lre(df_entrada, equiv_dict_raw, df_params):
                 afecto = round(afecto_afp)
             elif id_concepto in CONCEPTOS_AFECTO_CES:
                 afecto = round(afecto_ces)
-            elif id_concepto == "isapre":
-                afecto = round(afecto_salud)
             elif id_concepto == "totalesEmpl":
                 afecto = round(afecto_totales)
             else:
