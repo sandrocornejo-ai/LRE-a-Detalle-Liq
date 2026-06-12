@@ -89,6 +89,24 @@ CONCEPTOS_AFECTO_AFP = {"afp","isapre","trabajoPesaEmpl","trabajoPesa","sis","mu
 CONCEPTOS_AFECTO_CES = {"cesEmpleado","cesAporteCi","cesAporteSol"}
 CONCEPTOS_SIEMPRE    = {"impuesto","cesEmpleado"}   # incluir aunque monto = 0
 
+# Códigos para validación de cuadre
+CODIGOS_VAL_HAB_AFECTOS = {
+    "2101","2102","2103","2104","2105","2106","2107","2108","2110",
+    "2111","2112","2113","2115","2123","2124","2201","2202"
+}
+CODIGOS_VAL_HAB_EXENTOS = {
+    "2204","2301","2302","2303","2304","2305","2306","2308","2309",
+    "2310","2311","2312","2313","2314","2315","2316","2331","2417","2418"
+}
+CODIGOS_VAL_DESC_LEGALES = {
+    "3141","3143","3144","3151","3154","3155","3156",
+    "3161","3162","3163","3164","3166"
+}
+CODIGOS_VAL_OTROS_DESC = {
+    "3171","3110","3181","3182","3183","3185","3186","3188"
+}
+COD_TOTAL_LIQUIDO = "5501"
+
 # ─────────────────────────────────────────────
 # FUNCIONES AUXILIARES
 # ─────────────────────────────────────────────
@@ -185,6 +203,98 @@ def cargar_parametros():
         df["mes_Proc"] = df["mes_Proc"].astype(str).str.strip()
         return df
     return pd.DataFrame()
+
+# ─────────────────────────────────────────────
+# VALIDACIÓN DE CUADRE
+# ─────────────────────────────────────────────
+
+def validar_cuadre(df_entrada):
+    """
+    Valida que (Total Haberes Afectos + Total Haberes Exentos) 
+    - (Total Descuentos Legales + Total Otros Descuentos) == Total Líquido(5501)
+    Retorna (ok: bool, df_descuadres: DataFrame)
+    """
+    lre_cols = list(df_entrada.columns)
+
+    registros = []
+    for _, row in df_entrada.iterrows():
+        hab_afectos   = sum_codes(row, lre_cols, CODIGOS_VAL_HAB_AFECTOS)
+        hab_exentos   = sum_codes(row, lre_cols, CODIGOS_VAL_HAB_EXENTOS)
+        desc_legales  = sum_codes(row, lre_cols, CODIGOS_VAL_DESC_LEGALES)
+        otros_desc    = sum_codes(row, lre_cols, CODIGOS_VAL_OTROS_DESC)
+
+        liquido_calc  = (hab_afectos + hab_exentos) - (desc_legales + otros_desc)
+
+        # Buscar columna de total líquido por código 5501
+        liquido_inf   = next((safe_num(row.get(c, 0)) for c in lre_cols if extraer_codigo(c) == COD_TOTAL_LIQUIDO), 0)
+        diferencia    = round(liquido_calc) - round(liquido_inf)
+
+        registros.append({
+            "hab_afectos":  hab_afectos,
+            "hab_exentos":  hab_exentos,
+            "desc_legales": desc_legales,
+            "otros_desc":   otros_desc,
+            "liq_calc":     round(liquido_calc),
+            "liq_inf":      round(liquido_inf),
+            "diferencia":   diferencia,
+            "descuadrado":  diferencia != 0,
+        })
+
+    df_val = pd.DataFrame(registros)
+    df_desc = df_entrada[df_val["descuadrado"].values].copy()
+
+    if not df_desc.empty:
+        df_desc["Total haberes afectos"]   = df_val.loc[df_val["descuadrado"], "hab_afectos"].values
+        df_desc["Total haberes exentos"]   = df_val.loc[df_val["descuadrado"], "hab_exentos"].values
+        df_desc["Total descuentos legales"]= df_val.loc[df_val["descuadrado"], "desc_legales"].values
+        df_desc["Total otros descuentos"]  = df_val.loc[df_val["descuadrado"], "otros_desc"].values
+        df_desc["Liquido calculado"]       = df_val.loc[df_val["descuadrado"], "liq_calc"].values
+        df_desc["Liquido informado"]       = df_val.loc[df_val["descuadrado"], "liq_inf"].values
+        df_desc["Diferencia"]              = df_val.loc[df_val["descuadrado"], "diferencia"].values
+
+    todo_ok = df_desc.empty
+    return todo_ok, df_desc
+
+def generar_log_excel(df_desc):
+    """Genera el archivo log de descuadres en Excel."""
+    output = io.BytesIO()
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Descuadres"
+
+    header_fill    = PatternFill("solid", fgColor="1A2744")
+    header_font    = Font(bold=True, color="FFFFFF", size=10)
+    error_fill     = PatternFill("solid", fgColor="FFE0E0")
+    error_font     = Font(bold=True, color="C53030", size=10)
+    border = Border(
+        bottom=Side(style="thin", color="E8EDF5"),
+        right=Side(style="thin", color="E8EDF5")
+    )
+
+    cols_extra = {"Total haberes afectos","Total haberes exentos",
+                  "Total descuentos legales","Total otros descuentos",
+                  "Liquido calculado","Liquido informado","Diferencia"}
+
+    cols = list(df_desc.columns)
+    for ci, col in enumerate(cols, 1):
+        is_extra = col in cols_extra
+        cell = ws.cell(row=1, column=ci, value=col)
+        cell.fill = error_fill if is_extra else header_fill
+        cell.font = error_font if is_extra else header_font
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+        ws.column_dimensions[cell.column_letter].width = max(len(col) + 4, 14)
+
+    for ri, row_data in enumerate(df_desc.itertuples(index=False), 2):
+        fill = PatternFill("solid", fgColor="FFF5F5") if ri % 2 == 0 else PatternFill("solid", fgColor="FFFFFF")
+        for ci, val in enumerate(row_data, 1):
+            cell = ws.cell(row=ri, column=ci, value=val)
+            cell.fill = fill
+            cell.border = border
+            cell.alignment = Alignment(vertical="center")
+
+    ws.freeze_panes = "A2"
+    wb.save(output)
+    return output.getvalue()
 
 # ─────────────────────────────────────────────
 # TRANSFORMACIÓN PRINCIPAL
@@ -473,38 +583,73 @@ if archivo_lre:
             df_entrada = df_entrada[df_entrada[COL_FECHA_PROCESO].isin(meses_sel)]
             st.caption(f"Procesando {len(df_entrada):,} filas para: {', '.join(meses_sel)}")
 
-    if st.button("▶ Generar archivo de salida"):
-        with st.spinner("Procesando transformación..."):
+    if st.button("▶ Validar y generar archivo de salida"):
+        # ── PASO 1: Validación de cuadre ──
+        with st.spinner("Validando archivo de entrada..."):
             try:
-                df_salida = transformar_lre(df_entrada, equiv_dict, df_params)
-
-                if df_salida.empty:
-                    st.markdown('<div class="alert-warning">⚠️ No se generaron filas de salida.</div>', unsafe_allow_html=True)
-                else:
-                    st.markdown(f'<div class="alert-success">✅ Transformación completada: <b>{len(df_salida):,} filas</b> generadas.</div>', unsafe_allow_html=True)
-
-                    with st.expander("👁️ Vista previa del resultado (primeras 20 filas)"):
-                        st.dataframe(df_salida.head(20), use_container_width=True)
-
-                    with st.expander("📊 Resumen por mes y concepto"):
-                        resumen = (
-                            df_salida.groupby(["Fecha de proceso", "Id del concepto"])["Monto del concepto"]
-                            .sum().reset_index()
-                        )
-                        st.dataframe(resumen, use_container_width=True)
-
-                    excel_bytes = generar_excel(df_salida)
-                    nombre_base = os.path.splitext(archivo_lre.name)[0]
-                    nombre_salida = f"migracion_{nombre_base}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
-
-                    st.download_button(
-                        label="⬇️ Descargar archivo de salida (.xlsx)",
-                        data=excel_bytes,
-                        file_name=nombre_salida,
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                    )
-
+                todo_ok, df_desc = validar_cuadre(df_entrada)
             except Exception as e:
-                st.markdown(f'<div class="alert-error">❌ Error durante el procesamiento: {e}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="alert-error">❌ Error en validación: {e}</div>', unsafe_allow_html=True)
                 import traceback
                 st.code(traceback.format_exc())
+                st.stop()
+
+        if not todo_ok:
+            st.markdown('<div class="alert-error">⚠️ El archivo presenta descuadres en sus valores. Se generará un archivo log con los registros descuadrados.</div>', unsafe_allow_html=True)
+            st.caption(f"{len(df_desc):,} registro(s) con descuadre.")
+
+            with st.expander("👁️ Registros con descuadre"):
+                st.dataframe(df_desc[["Fecha de proceso","Id empleado","Número de contrato",
+                                       "Total haberes afectos","Total haberes exentos",
+                                       "Total descuentos legales","Total otros descuentos",
+                                       "Liquido calculado","Liquido informado","Diferencia"]],
+                             use_container_width=True)
+
+            log_bytes = generar_log_excel(df_desc)
+            nombre_base = os.path.splitext(archivo_lre.name)[0]
+            nombre_log = f"log_descuadres_{nombre_base}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+            st.download_button(
+                label="⬇️ Descargar archivo log de descuadres (.xlsx)",
+                data=log_bytes,
+                file_name=nombre_log,
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+
+        else:
+            st.markdown('<div class="alert-success">✅ Archivo validado exitosamente. Ahora puedes generar el archivo de salida.</div>', unsafe_allow_html=True)
+
+            # ── PASO 2: Transformación ──
+            with st.spinner("Generando archivo de salida..."):
+                try:
+                    df_salida = transformar_lre(df_entrada, equiv_dict, df_params)
+
+                    if df_salida.empty:
+                        st.markdown('<div class="alert-warning">⚠️ No se generaron filas de salida.</div>', unsafe_allow_html=True)
+                    else:
+                        st.markdown(f'<div class="alert-success">✅ Transformación completada: <b>{len(df_salida):,} filas</b> generadas.</div>', unsafe_allow_html=True)
+
+                        with st.expander("👁️ Vista previa del resultado (primeras 20 filas)"):
+                            st.dataframe(df_salida.head(20), use_container_width=True)
+
+                        with st.expander("📊 Resumen por mes y concepto"):
+                            resumen = (
+                                df_salida.groupby(["Fecha de proceso", "Id del concepto"])["Monto del concepto"]
+                                .sum().reset_index()
+                            )
+                            st.dataframe(resumen, use_container_width=True)
+
+                        excel_bytes = generar_excel(df_salida)
+                        nombre_base = os.path.splitext(archivo_lre.name)[0]
+                        nombre_salida = f"migracion_{nombre_base}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+
+                        st.download_button(
+                            label="⬇️ Descargar archivo de salida (.xlsx)",
+                            data=excel_bytes,
+                            file_name=nombre_salida,
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                        )
+
+                except Exception as e:
+                    st.markdown(f'<div class="alert-error">❌ Error durante el procesamiento: {e}</div>', unsafe_allow_html=True)
+                    import traceback
+                    st.code(traceback.format_exc())
