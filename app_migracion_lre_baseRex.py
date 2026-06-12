@@ -171,7 +171,7 @@ def construir_mapeo(equiv_dict_raw, df_cols):
 
 @st.cache_data
 def cargar_equiv_conceptos():
-    path = os.path.join(DATA_DIR, "equiv_conceptos.xlsx")
+    path = os.path.join(DATA_DIR, "equiv_conceptos_ab_rex.xlsx")
     if os.path.exists(path):
         df = pd.read_excel(path)
         return dict(zip(df["cod_lre"], df["concepto_detalle"]))
@@ -318,7 +318,7 @@ def transformar_lre(df_entrada, equiv_dict_raw, df_params):
                 "Empresa":                   id_empresa,
                 "Total de rebajas por LLSS": rebaja_llss,
                 "Rentas no gravadas":        rng,
-                "Rebaja por zona extrema":   0,
+                "Rebaja por zona extrema":   round(safe_num(next((row.get(c,0) for c in lre_cols if extraer_codigo(c)=="3167"), 0))) if id_concepto=="zonaExtrema" else 0,
                 "Jornada":                   "C",
                 "Días de vacaciones":        0,
                 "Monto Init":                monto_init,
