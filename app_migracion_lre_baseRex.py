@@ -588,23 +588,20 @@ if archivo_lre:
     st.markdown(f'<div class="alert-success">✅ Archivo cargado: <b>{archivo_lre.name}</b></div>', unsafe_allow_html=True)
 
     try:
-        df_entrada = pd.read_excel(archivo_lre, sheet_name=0)
-        # Forzar Fecha de proceso como string
-        if COL_FECHA_PROCESO in df_entrada.columns:
-            df_entrada[COL_FECHA_PROCESO] = df_entrada[COL_FECHA_PROCESO].astype(str).str.strip()
+        df_entrada = pd.read_excel(archivo_lre, sheet_name=0, dtype=str)
+        df_entrada[COL_FECHA_PROCESO] = df_entrada[COL_FECHA_PROCESO].astype(str).str.strip()
 
-        # Limpiar columnas numéricas con texto: solo desde columna 14 en adelante
+        # Convertir columnas numéricas (desde índice 14): limpiar puntos de miles y convertir a float
         for col in df_entrada.columns[14:]:
             if col == COL_FECHA_PROCESO:
                 continue
-            if df_entrada[col].dtype == object:
-                try:
-                    cleaned = df_entrada[col].astype(str).str.strip().str.replace(r"\.", "", regex=True).str.replace(",", "", regex=False)
-                    numeric = pd.to_numeric(cleaned, errors="coerce")
-                    if numeric.notna().sum() > len(df_entrada) * 0.5:
-                        df_entrada[col] = numeric.fillna(0)
-                except Exception:
-                    pass
+            try:
+                cleaned = df_entrada[col].astype(str).str.strip().str.replace(r"\.", "", regex=True).str.replace(",", ".", regex=False)
+                numeric = pd.to_numeric(cleaned, errors="coerce")
+                if numeric.notna().sum() > len(df_entrada) * 0.3:
+                    df_entrada[col] = numeric.fillna(0)
+            except Exception:
+                pass
         n_meses = df_entrada[COL_FECHA_PROCESO].nunique() if COL_FECHA_PROCESO in df_entrada.columns else "N/D"
         st.caption(f"📊 {len(df_entrada):,} filas × {len(df_entrada.columns)} columnas | Meses: {n_meses}")
     except Exception as e:
