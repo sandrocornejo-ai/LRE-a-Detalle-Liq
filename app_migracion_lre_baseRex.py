@@ -247,6 +247,30 @@ def transformar_lre(df_entrada, equiv_dict_raw, df_params):
             monto = safe_num(row.get(col_lre, 0))
             conceptos_acumulados[id_concepto] = conceptos_acumulados.get(id_concepto, 0.0) + monto
 
+        # ── Fila especial: licenciaDias ──
+        if dias_lic > 0:
+            filas_salida.append({
+                "Fecha de proceso":          mes_proc,
+                "Id empleado":               id_empleado,
+                "Número de contrato":        nro_cont,
+                "Id del concepto":           "licenciaDias",
+                "Monto del concepto":        dias_lic,
+                "Afecto":                    "",
+                "Id de institución":         "",
+                "Cotización de jubilación":  "",
+                "Días de licencias":         dias_lic,
+                "Días trabajados":           dias_trab,
+                "Fecha de aplicación":       mes_proc,
+                "Empresa":                   id_empresa,
+                "Total de rebajas por LLSS": 0,
+                "Rentas no gravadas":        0,
+                "Rebaja por zona extrema":   0,
+                "Jornada":                   "C",
+                "Días de vacaciones":        0,
+                "Monto Init":                monto_init,
+                "Fase":                      1,
+            })
+
         # ── Generar filas de salida ──
         for id_concepto, monto in conceptos_acumulados.items():
 
