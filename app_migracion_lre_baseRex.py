@@ -252,22 +252,39 @@ def validar_cuadre(df_entrada):
         })
 
     df_val = pd.DataFrame(registros)
-    df_desc = df_entrada[df_val["descuadrado"].values].copy()
+    df_entrada_r = df_entrada.reset_index(drop=True)
+    mask = df_val["descuadrado"].values
+    df_desc = df_entrada_r[mask].copy()
 
     if not df_desc.empty:
-        df_desc["Total haberes afectos"]   = df_val.loc[df_val["descuadrado"], "hab_afectos"].values
-        df_desc["Total haberes exentos"]   = df_val.loc[df_val["descuadrado"], "hab_exentos"].values
-        df_desc["Total descuentos legales"]= df_val.loc[df_val["descuadrado"], "desc_legales"].values
-        df_desc["Total otros descuentos"]  = df_val.loc[df_val["descuadrado"], "otros_desc"].values
-        df_desc["Liquido calculado"]       = df_val.loc[df_val["descuadrado"], "liq_calc"].values
-        df_desc["Liquido informado"]       = df_val.loc[df_val["descuadrado"], "liq_inf"].values
-        df_desc["Diferencia"]              = df_val.loc[df_val["descuadrado"], "diferencia"].values
+        df_val_desc = df_val[mask].reset_index(drop=True)
+        df_desc = df_desc.reset_index(drop=True)
+        df_desc["Total haberes afectos"]   = df_val_desc["hab_afectos"].values
+        df_desc["Total haberes exentos"]   = df_val_desc["hab_exentos"].values
+        df_desc["Total descuentos legales"]= df_val_desc["desc_legales"].values
+        df_desc["Total otros descuentos"]  = df_val_desc["otros_desc"].values
+        df_desc["Liquido calculado"]       = df_val_desc["liq_calc"].values
+        df_desc["Liquido informado"]       = df_val_desc["liq_inf"].values
+        df_desc["Diferencia"]              = df_val_desc["diferencia"].values
 
     todo_ok = df_desc.empty
     return todo_ok, df_desc
 
 def generar_log_excel(df_desc):
     """Genera el archivo log de descuadres en Excel."""
+    # Convertir columnas numéricas a int para evitar distorsiones al escribir
+    df_desc = df_desc.copy()
+    cols_extra = {"Total haberes afectos","Total haberes exentos",
+                  "Total descuentos legales","Total otros descuentos",
+                  "Liquido calculado","Liquido informado","Diferencia"}
+    for col in df_desc.columns:
+        if col in cols_extra:
+            df_desc[col] = pd.to_numeric(df_desc[col], errors="coerce").fillna(0).astype(int)
+        elif df_desc[col].dtype in [float, "float64"]:
+            try:
+                df_desc[col] = df_desc[col].fillna(0).astype(int)
+            except Exception:
+                pass
     output = io.BytesIO()
     wb = Workbook()
     ws = wb.active
