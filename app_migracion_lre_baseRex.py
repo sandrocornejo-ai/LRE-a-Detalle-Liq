@@ -275,6 +275,8 @@ def transformar_lre(df_entrada, equiv_dict_raw, df_params):
                 afecto = round(afecto_afp)
             elif id_concepto in CONCEPTOS_AFECTO_CES:
                 afecto = round(afecto_ces)
+            elif id_concepto == "impuesto":
+                afecto = round(total_hab_afectos - rebaja_llss_isapre)
             elif id_concepto == "totalesEmpl":
                 afecto = round(afecto_totales)
             else:
