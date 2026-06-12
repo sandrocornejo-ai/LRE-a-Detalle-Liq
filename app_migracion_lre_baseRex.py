@@ -573,6 +573,18 @@ if archivo_lre:
     try:
         df_entrada = pd.read_excel(archivo_lre, sheet_name=0, dtype={COL_FECHA_PROCESO: str})
         df_entrada[COL_FECHA_PROCESO] = df_entrada[COL_FECHA_PROCESO].astype(str).str.strip()
+
+        # Limpiar columnas O a BY (índices 14 a 76): dejar solo números enteros
+        cols_numericas = df_entrada.columns[14:77]
+        for col in cols_numericas:
+            df_entrada[col] = (
+                df_entrada[col]
+                .astype(str)
+                .str.replace(r"[^0-9-]", "", regex=True)  # eliminar todo excepto dígitos y signo -
+                .replace("", "0")
+                .replace("-", "0")
+            )
+            df_entrada[col] = pd.to_numeric(df_entrada[col], errors="coerce").fillna(0).astype(int)
         n_meses = df_entrada[COL_FECHA_PROCESO].nunique() if COL_FECHA_PROCESO in df_entrada.columns else "N/D"
         st.caption(f"📊 {len(df_entrada):,} filas × {len(df_entrada.columns)} columnas | Meses: {n_meses}")
     except Exception as e:
