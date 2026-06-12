@@ -588,15 +588,27 @@ if archivo_lre:
     st.markdown(f'<div class="alert-success">✅ Archivo cargado: <b>{archivo_lre.name}</b></div>', unsafe_allow_html=True)
 
     try:
+        # Leer todo como string para evitar problemas de tipos mixtos
         df_entrada = pd.read_excel(archivo_lre, sheet_name=0, dtype=str)
+
+        # Renombrar columnas quitando espacios extra
+        df_entrada.columns = [str(c).strip() for c in df_entrada.columns]
+
+        # Verificar que existe la columna fecha
+        if COL_FECHA_PROCESO not in df_entrada.columns:
+            raise ValueError(f"No se encontró la columna '{COL_FECHA_PROCESO}'. Columnas disponibles: {list(df_entrada.columns[:5])}")
+
         df_entrada[COL_FECHA_PROCESO] = df_entrada[COL_FECHA_PROCESO].astype(str).str.strip()
 
-        # Convertir columnas numéricas (desde índice 14): limpiar puntos de miles y convertir a float
+        # Eliminar filas donde Fecha de proceso es vacía o nan
+        df_entrada = df_entrada[~df_entrada[COL_FECHA_PROCESO].isin(["", "nan", "None", "NaT"])]
+
+        # Convertir columnas numéricas desde índice 14: limpiar puntos de miles
         for col in df_entrada.columns[14:]:
             if col == COL_FECHA_PROCESO:
                 continue
             try:
-                cleaned = df_entrada[col].astype(str).str.strip().str.replace(r"\.", "", regex=True).str.replace(",", ".", regex=False)
+                cleaned = df_entrada[col].astype(str).str.strip().str.replace(r"\.", "", regex=True)
                 numeric = pd.to_numeric(cleaned, errors="coerce")
                 if numeric.notna().sum() > len(df_entrada) * 0.3:
                     df_entrada[col] = numeric.fillna(0)
