@@ -168,28 +168,85 @@ def cargar_empresas(file_obj_or_df):
 
 
 # ─────────────────────────────────────────────
-# DETECCIÓN DE MÚLTIPLES CONTRATOS
+# RESOLUCIÓN DE CONTRATOS
 # ─────────────────────────────────────────────
-def detectar_multiples_contratos(df_empleados):
+def resolver_contrato(df_empleados, rut, fecha_proceso):
     """
-    Detecta RUTs con más de un contrato en el listado de empleados.
-    Retorna (set de ruts_ok, DataFrame de ruts_con_problema).
+    Dado un RUT y la fecha de proceso (yyyy-mm), determina qué contrato aplica.
+
+    Retorna:
+        (contrato, empresa_codigo, ok, motivo)
+        - ok=True  → se encontró exactamente un contrato válido
+        - ok=False → ninguno o más de uno coincide (motivo indica el problema)
     """
     if "Rut" not in df_empleados.columns:
-        return set(), pd.DataFrame()
+        return "", "", False, "Sin columna Rut"
 
-    conteo = df_empleados.groupby("Rut").size().reset_index(name="n_contratos")
-    problemas = conteo[conteo["n_contratos"] > 1].copy()
+    emp_rows = df_empleados[df_empleados["Rut"] == rut]
+    if emp_rows.empty:
+        return "", "", False, "RUT no encontrado en listado de empleados"
 
-    if not problemas.empty:
-        # Agregar datos adicionales del empleado para el log
-        detalle = df_empleados[df_empleados["Rut"].isin(problemas["Rut"])][
-            [c for c in ["Rut", "Nombre", "Empresa", "Contrato"] if c in df_empleados.columns]
-        ].copy()
-        detalle = detalle.merge(problemas, on="Rut", how="left")
-        return set(problemas["Rut"].tolist()), detalle
+    # Si tiene un solo contrato, retornar directamente
+    if len(emp_rows) == 1:
+        row = emp_rows.iloc[0]
+        contrato = row.get("Contrato", "")
+        empresa  = str(row.get("Empresa", "")).strip()
+        return contrato, empresa, True, ""
+
+    # Múltiples contratos → resolver por intervalo de fechas
+    try:
+        fp_date = datetime.strptime(fecha_proceso, "%Y-%m")
+    except Exception:
+        return "", "", False, "Fecha de proceso inválida"
+
+    col_inicio  = next((c for c in ["Fecha Inicio contrato", "Fecha inicio contrato",
+                                     "Fecha inicio", "FechaInicio"] if c in emp_rows.columns), None)
+    col_termino = next((c for c in ["Fecha término contrato", "Fecha termino contrato",
+                                     "Fecha término", "FechaTermino"] if c in emp_rows.columns), None)
+
+    if col_inicio is None:
+        return "", "", False, "No se encontró columna de fecha inicio contrato"
+
+    candidatos = []
+    for _, cr in emp_rows.iterrows():
+        try:
+            f_inicio = pd.to_datetime(cr[col_inicio])
+            if pd.isna(f_inicio):
+                continue
+
+            # Fecha término: si está vacía = contrato indefinido
+            f_termino = None
+            if col_termino:
+                ft = pd.to_datetime(cr[col_termino], errors="coerce")
+                if not pd.isna(ft):
+                    f_termino = ft
+
+            # Verificar si la fecha de proceso cae en el intervalo
+            if f_inicio <= fp_date:
+                if f_termino is None or fp_date <= f_termino:
+                    candidatos.append(cr)
+        except Exception:
+            continue
+
+    if len(candidatos) == 1:
+        contrato = candidatos[0].get("Contrato", "")
+        empresa  = str(candidatos[0].get("Empresa", "")).strip()
+        return contrato, empresa, True, ""
+    elif len(candidatos) == 0:
+        return "", "", False, f"Ningún contrato aplica para el período {fecha_proceso}"
     else:
-        return set(), pd.DataFrame()
+        return "", "", False, f"Más de un contrato aplica para el período {fecha_proceso} ({len(candidatos)} contratos)"
+
+
+def construir_log_contratos(df_empleados, ruts_problema, fecha_proceso, motivos):
+    """Construye el DataFrame de log para trabajadores con problema de contratos."""
+    cols = [c for c in ["Rut", "Nombre", "Empresa", "Contrato",
+                         "Fecha Inicio contrato", "Fecha término contrato"]
+            if c in df_empleados.columns]
+    detalle = df_empleados[df_empleados["Rut"].isin(ruts_problema)][cols].copy()
+    detalle["Motivo"] = detalle["Rut"].map(motivos)
+    detalle["Período"] = fecha_proceso
+    return detalle
 
 
 # ─────────────────────────────────────────────
@@ -266,34 +323,27 @@ def generar_filas_dt(df, fecha_proceso, refs, df_empleados):
     # Columnas del CSV que tienen equivalencia (excluir COL_SALUD_VOL para isapre, se suma manualmente)
     cols_conceptos = [c for c in df.columns if c in equiv_map and c != COL_SALUD_VOL]
 
-    # ── Detectar múltiples contratos ──
-    ruts_multiples, _ = detectar_multiples_contratos(df_empleados)
+    # ── Registro de problemas de contrato (para log) ──
+    ruts_problema = {}   # rut → motivo
+    filas = []
 
     for _, row in df.iterrows():
         rut = str(row.get(COL_RUT, "")).strip()
 
-        # Excluir trabajadores con múltiples contratos
-        if rut in ruts_multiples:
+        # ── Resolver contrato ──
+        numero_contrato, empresa_codigo, ok, motivo = resolver_contrato(
+            df_empleados, rut, fecha_proceso
+        )
+        if not ok:
+            ruts_problema[rut] = motivo
             continue
 
-        # ── Lookup empleado → empresa ──
-        empresa_codigo = ""
-        empresa_salida = ""
-        numero_contrato = ""
-        if not df_empleados.empty and "Rut" in df_empleados.columns:
-            emp_rows = df_empleados[df_empleados["Rut"] == rut]
-            if not emp_rows.empty:
-                empresa_codigo = str(emp_rows.iloc[0].get("Empresa", "")).strip()
-                if "Contrato" in df_empleados.columns:
-                    numero_contrato = emp_rows.iloc[0].get("Contrato", "")
-
         # ── Lookup empresa → código empresa ──
+        empresa_salida = empresa_codigo
         if empresa_codigo and not df_empresas.empty and "Empresa" in df_empresas.columns:
             emp2 = df_empresas[df_empresas["Empresa"] == empresa_codigo]
             if not emp2.empty:
                 empresa_salida = emp2.iloc[0]["Empresa"]
-            else:
-                empresa_salida = empresa_codigo  # fallback al código directo
 
         # ── Valores base del trabajador ──
         dias_trab   = safe_num(row.get(COL_DIAS_TRAB, 0))
@@ -382,6 +432,8 @@ def generar_filas_dt(df, fecha_proceso, refs, df_empleados):
                 afecto = min(suma_haber_afecto, tope_ces) if tope_ces > 0 else suma_haber_afecto
             elif id_concepto == "totalesEmpl":
                 afecto = suma_haber_afecto + suma_haber_exento
+            elif id_concepto == "impuesto":
+                afecto = suma_haber_afecto - total_rebajas_llss
             else:
                 afecto = 0
 
@@ -424,7 +476,14 @@ def generar_filas_dt(df, fecha_proceso, refs, df_empleados):
                 "Fase":                    1,
             })
 
-    return pd.DataFrame(filas)
+    # Construir log de problemas de contrato
+    df_log_contratos = pd.DataFrame()
+    if ruts_problema:
+        df_log_contratos = construir_log_contratos(
+            df_empleados, list(ruts_problema.keys()), fecha_proceso, ruts_problema
+        )
+
+    return pd.DataFrame(filas), df_log_contratos
 
 
 # ─────────────────────────────────────────────
@@ -753,9 +812,6 @@ def render_modulo_dt(refs_compartidas):
                 # Leer empleados
                 df_empleados = cargar_empleados(archivo_empleados)
 
-                # Detectar múltiples contratos
-                ruts_multiples, df_log_mult = detectar_multiples_contratos(df_empleados)
-
                 # Ejecutar validaciones de cuadratura
                 errores_val = validar_cuadraturas_dt(df_dt, archivo_dt.name)
 
@@ -816,10 +872,30 @@ def render_modulo_dt(refs_compartidas):
         # ── Generar archivo de salida ──
         with st.spinner("Generando archivo de salida..."):
             try:
-                df_salida = generar_filas_dt(df_dt, fecha_proceso, refs_compartidas, df_empleados)
+                df_salida, df_log_contratos = generar_filas_dt(df_dt, fecha_proceso, refs_compartidas, df_empleados)
             except Exception as e:
                 st.markdown(f'<div class="alert-error">❌ Error al generar el archivo de salida: <b>{e}</b></div>', unsafe_allow_html=True)
                 return
+
+        # ── Mostrar log de problemas de contrato si hay ──
+        if not df_log_contratos.empty:
+            st.markdown(f"""
+            <div class="alert-warning">
+                ⚠️ <b>{len(df_log_contratos["Rut"].unique())} trabajador(es)</b> fueron excluidos por problemas en la resolución de contrato.<br>
+                Descarga el log para revisarlos.
+            </div>""", unsafe_allow_html=True)
+
+            with st.expander(f"👁️ Ver trabajadores excluidos por contrato ({len(df_log_contratos['Rut'].unique())})"):
+                st.dataframe(df_log_contratos, use_container_width=True, hide_index=True)
+
+            log_cont_bytes = generar_excel_log(df_log_contratos)
+            st.download_button(
+                label="⬇️ Descargar log_multiples_contratos.xlsx",
+                data=log_cont_bytes,
+                file_name=f"log_multiples_contratos_{fecha_proceso}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                key="dt_btn_log_contratos"
+            )
 
         if df_salida.empty:
             st.markdown('<div class="alert-warning">⚠️ No se generaron registros. Verifica que el archivo y los parámetros sean correctos.</div>', unsafe_allow_html=True)
