@@ -743,7 +743,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ── NAVEGACIÓN PRINCIPAL ──
-nav_migracion, nav_dt, nav_params = st.tabs(["📂 Migración DDJJ Previred", "🏛️ Migración DT", "⚙️ Parámetros Mensuales"])
+nav_migracion, nav_dt = st.tabs(["📂 Migración DDJJ Previred", "🏛️ Migración DT"])
 
 # Cargar referencias compartidas (disponibles para todos los tabs)
 refs, errores_refs = cargar_referencias()
@@ -800,6 +800,20 @@ with nav_migracion:
     else:
         st.markdown('<div class="alert-warning">⚠️ Debes subir el listado de empleados del período para ejecutar el proceso.</div>', unsafe_allow_html=True)
 
+    # Upload parámetros mensuales
+    st.markdown("### 📅 Parámetros mensuales")
+    archivo_params = st.file_uploader(
+        "Sube el archivo parametrosMesuales.xlsx del período",
+        type=["xlsx"],
+        accept_multiple_files=False,
+        key="previred_params_upload",
+        help="Archivo con los parámetros legales del mes a procesar."
+    )
+    if archivo_params:
+        st.markdown(f'<div class="alert-success">✅ Parámetros mensuales cargados: <b>{archivo_params.name}</b></div>', unsafe_allow_html=True)
+    else:
+        st.markdown('<div class="alert-warning">⚠️ Debes subir el archivo de parámetros mensuales para ejecutar el proceso.</div>', unsafe_allow_html=True)
+
     if archivos:
         st.markdown(f'<div class="alert-success">✅ {len(archivos)} archivo(s) cargado(s): {", ".join([f.name for f in archivos])}</div>', unsafe_allow_html=True)
 
@@ -813,14 +827,15 @@ with nav_migracion:
             </div>""", unsafe_allow_html=True)
             st.stop()
 
-        if not archivo_empleados:
-            st.info("Sube el listado de empleados del período para habilitar el proceso.")
+        if not archivo_empleados or not archivo_params:
+            st.info("Sube el listado de empleados y los parámetros mensuales para habilitar el proceso.")
         else:
             if st.button("▶ Ejecutar validaciones"):
                 todos_errores = []
                 dfs = []
 
                 refs["listado_empleados"] = pd.read_excel(archivo_empleados)
+                refs["parametros"] = pd.read_excel(archivo_params)
 
                 with st.spinner("Procesando archivos..."):
                     for archivo in archivos:
@@ -904,7 +919,4 @@ with nav_migracion:
 
 with nav_dt:
     render_modulo_dt(refs)
-
-with nav_params:
-    render_parametros()
 

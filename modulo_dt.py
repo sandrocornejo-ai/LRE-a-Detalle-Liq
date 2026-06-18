@@ -795,7 +795,21 @@ def render_modulo_dt(refs_compartidas):
     else:
         st.markdown('<div class="alert-warning">⚠️ Debes subir el listado de empresas para ejecutar el proceso.</div>', unsafe_allow_html=True)
 
-    if not archivo_dt or not archivo_empleados or not archivo_empresas:
+    # ── Upload parámetros mensuales ──
+    st.markdown("### 📅 Parámetros mensuales")
+    archivo_params_dt = st.file_uploader(
+        "Sube el archivo parametrosMesuales.xlsx del período",
+        type=["xlsx"],
+        accept_multiple_files=False,
+        key="dt_params_upload",
+        help="Archivo con los parámetros legales del mes a procesar."
+    )
+    if archivo_params_dt:
+        st.markdown(f'<div class="alert-success">✅ Parámetros mensuales cargados: <b>{archivo_params_dt.name}</b></div>', unsafe_allow_html=True)
+    else:
+        st.markdown('<div class="alert-warning">⚠️ Debes subir el archivo de parámetros mensuales para ejecutar el proceso.</div>', unsafe_allow_html=True)
+
+    if not archivo_dt or not archivo_empleados or not archivo_empresas or not archivo_params_dt:
         return
 
     st.markdown(f'<div class="alert-success">✅ Archivo DT cargado: <b>{archivo_dt.name}</b></div>', unsafe_allow_html=True)
@@ -823,18 +837,6 @@ def render_modulo_dt(refs_compartidas):
 
     st.markdown(f'<div class="alert-success">📅 Fecha de proceso: <b>{fecha_proceso}</b></div>', unsafe_allow_html=True)
 
-    # ── Verificar parámetros del mes ──
-    params_df = refs_compartidas.get("parametros", pd.DataFrame())
-    if not params_df.empty and "mes_Proc" in params_df.columns:
-        params_df["mes_Proc"] = params_df["mes_Proc"].astype(str).str.strip()
-        if fecha_proceso not in params_df["mes_Proc"].values:
-            st.markdown(f"""
-            <div class="alert-error">
-                ❌ <b>No se encontraron parámetros mensuales para {fecha_proceso}.</b><br>
-                Ve a la pestaña <b>⚙️ Parámetros Mensuales</b> y agrega el mes antes de continuar.
-            </div>""", unsafe_allow_html=True)
-            return
-
     # ── Botón ejecutar ──
     if st.button("▶ Ejecutar proceso DT", key="dt_btn_ejecutar"):
         with st.spinner("Procesando archivo..."):
@@ -845,7 +847,7 @@ def render_modulo_dt(refs_compartidas):
                 # Leer empleados
                 df_empleados = cargar_empleados(archivo_empleados)
 
-                # Leer empresas (subido por el usuario, encabezado en fila 1)
+                # Leer empresas
                 df_empresas_periodo = pd.read_excel(archivo_empresas, header=1)
                 df_empresas_periodo.columns = [str(c).strip() for c in df_empresas_periodo.columns]
                 if "Nombre" in df_empresas_periodo.columns:
@@ -853,9 +855,20 @@ def render_modulo_dt(refs_compartidas):
                 if "Empresa" in df_empresas_periodo.columns:
                     df_empresas_periodo["Empresa"] = df_empresas_periodo["Empresa"].astype(str).str.strip()
 
-                # Inyectar en refs para que generar_filas_dt lo use
+                # Leer parámetros mensuales
+                df_params_periodo = pd.read_excel(archivo_params_dt)
+
+                # Verificar que el mes existe en los parámetros
+                if "mes_Proc" in df_params_periodo.columns:
+                    df_params_periodo["mes_Proc"] = df_params_periodo["mes_Proc"].astype(str).str.strip()
+                    if fecha_proceso not in df_params_periodo["mes_Proc"].values:
+                        st.markdown(f'<div class="alert-error">❌ <b>No se encontraron parámetros para {fecha_proceso}</b> en el archivo subido.</div>', unsafe_allow_html=True)
+                        st.stop()
+
+                # Inyectar en refs
                 refs_dt = dict(refs_compartidas)
                 refs_dt["listado_empresas"] = df_empresas_periodo
+                refs_dt["parametros"] = df_params_periodo
 
                 # Ejecutar validaciones de cuadratura
                 errores_val = validar_cuadraturas_dt(df_dt, archivo_dt.name)
