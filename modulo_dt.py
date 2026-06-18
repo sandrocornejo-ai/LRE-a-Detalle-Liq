@@ -339,12 +339,12 @@ def generar_filas_dt(df, fecha_proceso, refs, df_empleados):
             ruts_problema[rut] = motivo
             continue
 
-        # ── Lookup empresa → código empresa ──
+        # ── Lookup empresa → busca por Nombre, trae código Empresa ──
         empresa_salida = empresa_codigo
-        if empresa_codigo and not df_empresas.empty and "Empresa" in df_empresas.columns:
-            emp2 = df_empresas[df_empresas["Empresa"] == empresa_codigo]
+        if empresa_codigo and not df_empresas.empty and "Nombre" in df_empresas.columns:
+            emp2 = df_empresas[df_empresas["Nombre"] == empresa_codigo]
             if not emp2.empty:
-                empresa_salida = emp2.iloc[0]["Empresa"]
+                empresa_salida = emp2.iloc[0].get("Empresa", empresa_codigo)
 
         # ── Valores base del trabajador ──
         dias_trab   = safe_num(row.get(COL_DIAS_TRAB, 0))
@@ -393,8 +393,8 @@ def generar_filas_dt(df, fecha_proceso, refs, df_empleados):
 
         # ── Cotización mutual (triangulación empleado → empresa) ──
         cot_mutual = 0.93
-        if empresa_codigo and not df_empresas.empty and "Empresa" in df_empresas.columns:
-            emp2 = df_empresas[df_empresas["Empresa"] == empresa_codigo]
+        if empresa_salida and not df_empresas.empty and "Empresa" in df_empresas.columns:
+            emp2 = df_empresas[df_empresas["Empresa"] == empresa_salida]
             if not emp2.empty and "Cotización Mutual" in df_empresas.columns:
                 cot_mutual = safe_num(emp2.iloc[0].get("Cotización Mutual", 0.93), 0.93)
 
