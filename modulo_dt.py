@@ -494,7 +494,29 @@ def generar_filas_dt(df, fecha_proceso, refs, df_empleados, df_empresas_externo=
                 "Fase":                    1,
             })
 
-    # Construir log de problemas de contrato
+        # ── Fila adicional: licenciaDias (si días de licencia > 0) ──
+        if dias_lic > 0:
+            filas.append({
+                "Fecha de proceso":          fecha_proceso,
+                "Id empleado":               rut,
+                "Número de contrato":        numero_contrato,
+                "Id del concepto":           "licenciaDias",
+                "Monto del concepto":        dias_lic,
+                "Afecto":                    0,
+                "Id de institución":         "",
+                "Cotización de jubilación":  "",
+                "Días de licencias":         dias_lic,
+                "Días trabajados":           dias_trab,
+                "Fecha de aplicación":       fecha_proceso,
+                "Empresa":                   empresa_salida,
+                "Total de rebajas por LLSS": 0,
+                "Rentas no gravadas":        0,
+                "Rebaja por zona extrema":   rebaja_zona,
+                "Jornada":                   "C",
+                "Días de vacaciones":        dias_vac,
+                "Monto Init":                monto_init,
+                "Fase":                      1,
+            })
     df_log_contratos = pd.DataFrame()
     if ruts_problema:
         df_log_contratos = construir_log_contratos(
