@@ -292,8 +292,15 @@ def generar_filas_dt(df, fecha_proceso, refs, df_empleados):
     inst_cajas   = refs.get("inst_cajas", pd.DataFrame())
     empresas_raw = refs.get("listado_empresas", pd.DataFrame())
 
-    # Cargar empresas con encabezado correcto
-    df_empresas = cargar_empresas(empresas_raw)
+    # Si el DataFrame ya tiene columnas correctas (Empresa, Nombre) usarlo directo
+    # Si no, intentar cargar con header=1
+    if isinstance(empresas_raw, pd.DataFrame) and "Empresa" in empresas_raw.columns:
+        df_empresas = empresas_raw.copy()
+        if "Nombre" in df_empresas.columns:
+            df_empresas["Nombre"] = df_empresas["Nombre"].astype(str).str.strip()
+        df_empresas["Empresa"] = df_empresas["Empresa"].astype(str).str.strip()
+    else:
+        df_empresas = cargar_empresas(empresas_raw)
 
     # ── Parámetros del mes ──
     tope_salud = 0
