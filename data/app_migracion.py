@@ -1,11 +1,13 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-from openpyxl import Workbook
+from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 import os
 import io
 from datetime import datetime
+import calendar
+from modulo_dt import render_modulo_dt
 
 # ─────────────────────────────────────────────
 # CONFIGURACIÓN
@@ -16,7 +18,7 @@ DATA_DIR = "data"  # Carpeta con archivos de referencia
 # ESTILOS REX+
 # ─────────────────────────────────────────────
 st.set_page_config(
-    page_title="Rex+ | Migración DDJJ Previred",
+    page_title="Rex+ | Liquidaciones en detalle desde LRE",
     page_icon="💼",
     layout="wide"
 )
@@ -148,6 +150,18 @@ html, body, [class*="css"] {
     background-color: #00b4d8 !important;
     color: white !important;
 }
+
+/* Sección parámetros */
+.param-title {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #1a2744;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #00b4d8;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -248,6 +262,33 @@ GRUPOS_CES_AFECTO = {
 }
 
 # ─────────────────────────────────────────────
+# CONSTANTES PARÁMETROS MENSUALES
+# ─────────────────────────────────────────────
+ARCHIVO_PARAMS = os.path.join(DATA_DIR, "parametrosMesuales.xlsx")
+HOJA_PARAMS = "Hoja2"
+LABELS_PARAMS = {
+    "mes_Proc":           "Mes de proceso (aaaa-mm)",
+    "uf_Mes":             "UF del mes ($)",
+    "topeImp_Uf_afp":     "Tope imponible AFP (UF)",
+    "topeImp_pesos_afp":  "Tope imponible AFP ($)",
+    "topeCes_Uf":         "Tope cesantía (UF)",
+    "topeCes_pesos":      "Tope cesantía ($)",
+    "sis":                "SIS (%)",
+    "factor_sis":         "Factor SIS (decimal)",
+    "topeSalud_Uf":       "Tope salud (UF)",
+    "topeSalud_pesos":    "Tope salud ($)",
+    "imm":                "IMM ($)",
+    "topeGratif":         "Tope gratificación ($)",
+    "monto_Utm":          "Monto UTM ($)",
+    "ult_Diames":         "Último día del mes",
+    "aporte_Ccaf":        "Aporte CCAF (%)",
+    "aporte_Fonasa":      "Aporte FONASA (%)",
+    "Formato Fecha":      "Fecha formato (dd/mm/aaaa)",
+    "Aporte AFP":         "Aporte AFP (%)",
+    "Seg Social Exp vida":"Seg. social / Exp. vida (%)",
+}
+
+# ─────────────────────────────────────────────
 # FUNCIONES DE CARGA DE REFERENCIAS
 # ─────────────────────────────────────────────
 @st.cache_data
@@ -255,12 +296,13 @@ def cargar_referencias():
     refs = {}
     archivos = {
         "equiv_conceptos": "equiv_conceptos.xlsx",
-        "listado_empleados": "listado_empleados.xlsx",
         "listado_empresas": "listado_empresas.xlsx",
         "inst_mutuales": "inst_mutuales.xlsx",
         "inst_cajas": "inst_cajas.xlsx",
+        "inst_afp": "inst_afp.xlsx",
+        "inst_salud": "inst_salud.xlsx",
         "cot_afp_hist": "cot_afp_hist.xlsx",
-        "parametros": "parametrosMensuales.xlsx",
+        "parametros": "parametrosMesuales.xlsx",
     }
     errores = []
     for key, fname in archivos.items():
@@ -270,6 +312,123 @@ def cargar_referencias():
         else:
             errores.append(fname)
     return refs, errores
+
+@st.cache_data(ttl=0)
+def cargar_params():
+    df = pd.read_excel(ARCHIVO_PARAMS, sheet_name=HOJA_PARAMS, dtype={"mes_Proc": str})
+    df["mes_Proc"] = df["mes_Proc"].astype(str).str.strip()
+    return df
+
+def guardar_params(df: pd.DataFrame):
+    wb = load_workbook(ARCHIVO_PARAMS)
+    ws = wb[HOJA_PARAMS]
+    ws.delete_rows(2, ws.max_row)
+    for _, row in df.iterrows():
+        ws.append(list(row))
+    wb.save(ARCHIVO_PARAMS)
+
+def render_parametros():
+    st.markdown('<div class="param-title">📅 Gestión de parámetros mensuales</div>', unsafe_allow_html=True)
+    if not os.path.exists(ARCHIVO_PARAMS):
+        st.error(f"⚠️ No se encontró el archivo `{ARCHIVO_PARAMS}`.")
+        return
+    df_p = cargar_params()
+    tab_add, tab_edit, tab_view = st.tabs(["➕ Agregar mes", "✏️ Editar mes", "📊 Ver tabla"])
+
+    with tab_add:
+        ultimo = df_p["mes_Proc"].dropna().iloc[-1] if not df_p.empty else "2026-01"
+        try:
+            dt_ult = datetime.strptime(str(ultimo)[:7], "%Y-%m")
+            mes_sig = f"{dt_ult.year + 1}-01" if dt_ult.month == 12 else f"{dt_ult.year}-{dt_ult.month + 1:02d}"
+        except Exception:
+            mes_sig = ""
+        nuevo_mes = st.text_input("Mes de proceso", value=mes_sig, placeholder="aaaa-mm", key="pm_nuevo_mes")
+        mes_ok = False
+        if nuevo_mes:
+            try:
+                dt = datetime.strptime(nuevo_mes[:7], "%Y-%m")
+                ult_dia = calendar.monthrange(dt.year, dt.month)[1]
+                mes_ok = True
+                if nuevo_mes in df_p["mes_Proc"].values:
+                    st.warning(f"⚠️ El mes **{nuevo_mes}** ya existe. Usa **Editar mes** para modificarlo.")
+                    mes_ok = False
+            except ValueError:
+                st.error("Formato inválido. Usa aaaa-mm (ej: 2026-07)")
+                ult_dia = 30
+        if mes_ok:
+            ult_row = df_p.iloc[-1] if not df_p.empty else {}
+            def vref(c):
+                try:
+                    v = ult_row.get(c, 0)
+                    return float(v) if pd.notna(v) else 0.0
+                except Exception:
+                    return 0.0
+            nuevo = {"mes_Proc": nuevo_mes}
+            campos = [c for c in LABELS_PARAMS if c not in ("mes_Proc", "Formato Fecha", "factor_sis", "ult_Diames")]
+            cols_f = st.columns(3)
+            for i, col in enumerate(campos):
+                with cols_f[i % 3]:
+                    fmt = "%.4f" if col in ("sis", "Aporte AFP", "Seg Social Exp vida", "aporte_Ccaf", "aporte_Fonasa") else "%.2f"
+                    nuevo[col] = st.number_input(LABELS_PARAMS[col], value=vref(col), format=fmt, key=f"pm_new_{col}")
+            nuevo["factor_sis"] = round(nuevo.get("sis", 0) / 100, 6)
+            nuevo["ult_Diames"] = ult_dia
+            nuevo["Formato Fecha"] = f"{ult_dia:02d}/{dt.month:02d}/{dt.year}"
+            st.caption(f"📌 `factor_sis` = {nuevo['factor_sis']} | Último día del mes = {ult_dia}")
+            if st.button("💾 Guardar nuevo mes", key="pm_btn_add"):
+                fila = {col: nuevo.get(col) for col in df_p.columns}
+                df_nuevo = pd.concat([df_p, pd.DataFrame([fila])], ignore_index=True)
+                try:
+                    guardar_params(df_nuevo)
+                    st.cache_data.clear()
+                    st.success(f"✅ Mes **{nuevo_mes}** agregado.")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Error al guardar: {e}")
+
+    with tab_edit:
+        meses = list(reversed(df_p["mes_Proc"].dropna().tolist()))
+        mes_sel = st.selectbox("Mes a editar", meses, key="pm_mes_sel")
+        if mes_sel:
+            idx = df_p[df_p["mes_Proc"] == mes_sel].index[0]
+            fila = df_p.loc[idx].copy()
+            editado = {"mes_Proc": mes_sel}
+            campos_e = [c for c in LABELS_PARAMS if c not in ("mes_Proc", "Formato Fecha", "factor_sis", "ult_Diames")]
+            cols_e = st.columns(3)
+            for i, col in enumerate(campos_e):
+                with cols_e[i % 3]:
+                    try:
+                        val = float(fila.get(col, 0)) if pd.notna(fila.get(col)) else 0.0
+                    except Exception:
+                        val = 0.0
+                    fmt = "%.4f" if col in ("sis", "Aporte AFP", "Seg Social Exp vida", "aporte_Ccaf", "aporte_Fonasa") else "%.2f"
+                    editado[col] = st.number_input(LABELS_PARAMS[col], value=val, format=fmt, key=f"pm_edit_{col}")
+            editado["factor_sis"] = round(editado.get("sis", 0) / 100, 6)
+            try:
+                dt_e = datetime.strptime(mes_sel[:7], "%Y-%m")
+                ult_dia_e = calendar.monthrange(dt_e.year, dt_e.month)[1]
+                editado["ult_Diames"] = ult_dia_e
+                editado["Formato Fecha"] = f"{ult_dia_e:02d}/{dt_e.month:02d}/{dt_e.year}"
+            except Exception:
+                pass
+            st.caption(f"📌 `factor_sis` = {editado['factor_sis']}")
+            if st.button("💾 Guardar cambios", key="pm_btn_edit"):
+                for col in df_p.columns:
+                    df_p.at[idx, col] = editado.get(col, df_p.at[idx, col])
+                try:
+                    guardar_params(df_p)
+                    st.cache_data.clear()
+                    st.success(f"✅ Mes **{mes_sel}** actualizado.")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Error al guardar: {e}")
+
+    with tab_view:
+        col_f, _ = st.columns([1, 3])
+        with col_f:
+            filtro = st.text_input("🔍 Filtrar por año", placeholder="ej: 2026", key="pm_filtro")
+        df_v = df_p[df_p["mes_Proc"].str.startswith(filtro)] if filtro else df_p.copy()
+        st.dataframe(df_v.rename(columns=LABELS_PARAMS), use_container_width=True, hide_index=True, height=480)
+        st.caption(f"Total: {len(df_v)} períodos")
 
 # ─────────────────────────────────────────────
 # FUNCIONES DE PROCESAMIENTO
@@ -577,156 +736,175 @@ st.markdown("""
 <div class="rex-header">
     <div style="display:flex; align-items:center; gap:12px;">
         <div class="rex-logo">Rex<span>+</span></div>
-        <span class="rex-title">Migración DDJJ Previred</span>
+        <span class="rex-title">Liquidaciones en detalle desde LRE</span>
     </div>
     <div class="rex-badge">PRODUCCIÓN</div>
 </div>
 """, unsafe_allow_html=True)
 
-# Título sección
-st.markdown('<div class="section-title">📂 Migración DDJJ Previred</div>', unsafe_allow_html=True)
-st.markdown('<div class="section-sub">Sube uno o más archivos CSV del mismo RUT empresa para generar el archivo de salida en Excel.</div>', unsafe_allow_html=True)
+# ── NAVEGACIÓN PRINCIPAL ──
+nav_migracion, nav_dt, nav_params = st.tabs(["📂 Migración DDJJ Previred", "🏛️ Migración DT", "⚙️ Parámetros Mensuales"])
 
-# Cómo funciona
-col1, col2, col3 = st.columns(3)
-with col1:
-    st.markdown("""
-    <div class="step-card">
-        <div class="step-label">PASO 1</div>
-        <div class="step-title">Subir archivos CSV</div>
-        <div class="step-desc">Uno o más archivos del mismo RUT empresa. Ej: 76247825-0_202601.csv</div>
-    </div>""", unsafe_allow_html=True)
-with col2:
-    st.markdown("""
-    <div class="step-card">
-        <div class="step-label">PASO 2</div>
-        <div class="step-title">Validación automática</div>
-        <div class="step-desc">Se verifican las cuadraturas contables de cada registro.</div>
-    </div>""", unsafe_allow_html=True)
-with col3:
-    st.markdown("""
-    <div class="step-card">
-        <div class="step-label">PASO 3</div>
-        <div class="step-title">Descargar Excel</div>
-        <div class="step-desc">Si todo cuadra, se genera el archivo de salida listo para importar.</div>
-    </div>""", unsafe_allow_html=True)
-
-st.markdown('<hr class="rex-divider">', unsafe_allow_html=True)
-
-# Cargar referencias
+# Cargar referencias compartidas (disponibles para todos los tabs)
 refs, errores_refs = cargar_referencias()
 if errores_refs:
     st.markdown(f'<div class="alert-warning">⚠️ Archivos de referencia no encontrados en <b>/data</b>: {", ".join(errores_refs)}</div>', unsafe_allow_html=True)
 
-# Upload
-st.markdown("### 📤 Subir archivos CSV")
-archivos = st.file_uploader(
-    "Selecciona uno o más archivos CSV de Previred",
-    type=["csv"],
-    accept_multiple_files=True,
-    help="Los archivos deben corresponder al mismo RUT empresa (primeros 10 caracteres del nombre)"
-)
-
-if archivos:
-    st.markdown(f'<div class="alert-success">✅ {len(archivos)} archivo(s) cargado(s): {", ".join([f.name for f in archivos])}</div>', unsafe_allow_html=True)
-
-    # Validar misma empresa
-    valido, prefijos = validar_archivos(archivos)
-    if not valido:
-        st.markdown(f"""
-        <div class="alert-error">
-            ❌ <b>Los archivos no corresponden a la misma empresa.</b><br>
-            Se detectaron distintos RUT empresa: {", ".join(set(prefijos))}<br>
-            Por favor sube solo archivos del mismo RUT empresa.
+with nav_migracion:
+    st.markdown('<div class="section-title">📂 Migración DDJJ Previred</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-sub">Sube uno o más archivos CSV del mismo RUT empresa para generar el archivo de salida en Excel.</div>', unsafe_allow_html=True)
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.markdown("""
+        <div class="step-card">
+            <div class="step-label">PASO 1</div>
+            <div class="step-title">Subir archivos CSV</div>
+            <div class="step-desc">Uno o más archivos del mismo RUT empresa. Ej: 76247825-0_202601.csv</div>
         </div>""", unsafe_allow_html=True)
-        st.stop()
+    with col2:
+        st.markdown("""
+        <div class="step-card">
+            <div class="step-label">PASO 2</div>
+            <div class="step-title">Validación automática</div>
+            <div class="step-desc">Se verifican las cuadraturas contables de cada registro.</div>
+        </div>""", unsafe_allow_html=True)
+    with col3:
+        st.markdown("""
+        <div class="step-card">
+            <div class="step-label">PASO 3</div>
+            <div class="step-title">Descargar Excel</div>
+            <div class="step-desc">Si todo cuadra, se genera el archivo de salida listo para importar.</div>
+        </div>""", unsafe_allow_html=True)
 
-    if st.button("▶ Ejecutar validaciones"):
-        todos_errores = []
-        dfs = []
+    st.markdown('<hr class="rex-divider">', unsafe_allow_html=True)
 
-        with st.spinner("Procesando archivos..."):
-            for archivo in archivos:
-                for enc in ("utf-8", "latin-1", "utf-8-sig", "cp1252"):
-                    try:
-                        archivo.seek(0)
-                        df = pd.read_csv(archivo, encoding=enc, sep=None, engine="python")
-                        break
-                    except (UnicodeDecodeError, Exception):
-                        continue
-                else:
-                    st.error(f"❌ No se pudo leer el archivo {archivo.name}. Verifica que sea un CSV válido.")
-                    st.stop()
-                df = calcular_totales(df)
-                errores = validar_cuadraturas(df, archivo.name)
-                todos_errores.extend(errores)
-                fecha_proceso = extraer_fecha_proceso(archivo.name)
-                df["_fecha_proceso"] = fecha_proceso
-                dfs.append(df)
+    # Upload CSV
+    st.markdown("### 📤 Subir archivos CSV")
+    archivos = st.file_uploader(
+        "Selecciona uno o más archivos CSV de Previred",
+        type=["csv"],
+        accept_multiple_files=True,
+        help="Los archivos deben corresponder al mismo RUT empresa (primeros 10 caracteres del nombre)"
+    )
 
-        st.markdown('<hr class="rex-divider">', unsafe_allow_html=True)
-        st.markdown("### 🔍 Resultado de validaciones")
+    # Upload listado_empleados
+    st.markdown("### 👥 Listado de empleados del período")
+    archivo_empleados = st.file_uploader(
+        "Sube el archivo listado_empleados.xlsx correspondiente al período a procesar",
+        type=["xlsx"],
+        accept_multiple_files=False,
+        help="Este archivo cambia en cada proceso. Debe contener: Rut, Empresa, AFP, Isapre"
+    )
+    if archivo_empleados:
+        st.markdown(f'<div class="alert-success">✅ Listado de empleados cargado: <b>{archivo_empleados.name}</b></div>', unsafe_allow_html=True)
+    else:
+        st.markdown('<div class="alert-warning">⚠️ Debes subir el listado de empleados del período para ejecutar el proceso.</div>', unsafe_allow_html=True)
 
-        if todos_errores:
+    if archivos:
+        st.markdown(f'<div class="alert-success">✅ {len(archivos)} archivo(s) cargado(s): {", ".join([f.name for f in archivos])}</div>', unsafe_allow_html=True)
+
+        valido, prefijos = validar_archivos(archivos)
+        if not valido:
             st.markdown(f"""
             <div class="alert-error">
-                ❌ <b>No se puede generar el archivo de salida.</b><br>
-                Se encontraron <b>{len(todos_errores)} error(es)</b> de validación en los registros procesados.
+                ❌ <b>Los archivos no corresponden a la misma empresa.</b><br>
+                Se detectaron distintos RUT empresa: {", ".join(set(prefijos))}<br>
+                Por favor sube solo archivos del mismo RUT empresa.
             </div>""", unsafe_allow_html=True)
+            st.stop()
 
-            with st.expander("📋 Ver log de errores detallado"):
-                df_errores = pd.DataFrame(todos_errores)
-                st.dataframe(df_errores, use_container_width=True, hide_index=True)
-
-                csv_log = df_errores.to_csv(index=False).encode("utf-8")
-                st.download_button(
-                    label="⬇️ Descargar log de errores (.csv)",
-                    data=csv_log,
-                    file_name=f"log_errores_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                    mime="text/csv"
-                )
+        if not archivo_empleados:
+            st.info("Sube el listado de empleados del período para habilitar el proceso.")
         else:
-            st.markdown("""
-            <div class="alert-success">
-                ✅ <b>Todas las validaciones se cumplieron correctamente.</b><br>
-                Los registros de todos los archivos cuadran sin diferencias.
-            </div>""", unsafe_allow_html=True)
+            if st.button("▶ Ejecutar validaciones"):
+                todos_errores = []
+                dfs = []
 
-            st.markdown("#### ¿Desea generar el archivo de salida?")
-            col_a, col_b, col_c, _ = st.columns([1, 1, 1, 4])
+                refs["listado_empleados"] = pd.read_excel(archivo_empleados)
 
-            with col_a:
-                aceptar = st.button("✅ Aceptar")
-            with col_b:
-                cancelar = st.button("✖ Cancelar")
-            with col_c:
-                salir = st.button("🚪 Salir")
+                with st.spinner("Procesando archivos..."):
+                    for archivo in archivos:
+                        for enc in ("utf-8", "latin-1", "utf-8-sig", "cp1252"):
+                            try:
+                                archivo.seek(0)
+                                df = pd.read_csv(archivo, encoding=enc, sep=None, engine="python")
+                                break
+                            except (UnicodeDecodeError, Exception):
+                                continue
+                        else:
+                            st.error(f"❌ No se pudo leer {archivo.name}. Verifica que sea un CSV válido.")
+                            st.stop()
+                        df = calcular_totales(df)
+                        errores = validar_cuadraturas(df, archivo.name)
+                        todos_errores.extend(errores)
+                        fecha_proceso = extraer_fecha_proceso(archivo.name)
+                        df["_fecha_proceso"] = fecha_proceso
+                        dfs.append(df)
 
-            if salir:
-                st.markdown('<div class="alert-warning">La sesión ha sido cerrada. Puedes cerrar esta ventana.</div>', unsafe_allow_html=True)
-                st.stop()
+                st.markdown('<hr class="rex-divider">', unsafe_allow_html=True)
+                st.markdown("### 🔍 Resultado de validaciones")
 
-            if cancelar:
-                st.markdown('<div class="alert-warning">Operación cancelada. Puedes subir nuevos archivos.</div>', unsafe_allow_html=True)
-                st.stop()
+                if todos_errores:
+                    st.markdown(f"""
+                    <div class="alert-error">
+                        ❌ <b>No se puede generar el archivo de salida.</b><br>
+                        Se encontraron <b>{len(todos_errores)} error(es)</b> de validación en los registros procesados.
+                    </div>""", unsafe_allow_html=True)
 
-            if aceptar:
-                with st.spinner("Generando archivo de salida..."):
-                    df_combined = pd.concat(dfs, ignore_index=True)
-                    filas_salida = []
-                    for _, grupo in df_combined.groupby("_fecha_proceso"):
-                        fp = grupo["_fecha_proceso"].iloc[0]
-                        df_out = generar_filas_salida(grupo, fp, refs)
-                        filas_salida.append(df_out)
+                    with st.expander("📋 Ver log de errores detallado"):
+                        df_errores = pd.DataFrame(todos_errores)
+                        st.dataframe(df_errores, use_container_width=True, hide_index=True)
+                        csv_log = df_errores.to_csv(index=False).encode("utf-8")
+                        st.download_button(
+                            label="⬇️ Descargar log de errores (.csv)",
+                            data=csv_log,
+                            file_name=f"log_errores_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                            mime="text/csv"
+                        )
+                else:
+                    st.markdown("""
+                    <div class="alert-success">
+                        ✅ <b>Todas las validaciones se cumplieron correctamente.</b><br>
+                        Los registros de todos los archivos cuadran sin diferencias.
+                    </div>""", unsafe_allow_html=True)
 
-                    df_final = pd.concat(filas_salida, ignore_index=True) if filas_salida else pd.DataFrame()
-                    excel_bytes = generar_excel(df_final)
+                    st.markdown("#### ¿Desea generar el archivo de salida?")
+                    col_a, col_b, col_c, _ = st.columns([1, 1, 1, 4])
+                    with col_a:
+                        aceptar = st.button("✅ Aceptar")
+                    with col_b:
+                        cancelar = st.button("✖ Cancelar")
+                    with col_c:
+                        salir = st.button("🚪 Salir")
 
-                st.markdown('<div class="alert-success">✅ Archivo generado exitosamente.</div>', unsafe_allow_html=True)
-                nombre_empresa = archivos[0].name[:10]
-                st.download_button(
-                    label="⬇️ Descargar archivo de salida (.xlsx)",
-                    data=excel_bytes,
-                    file_name=f"migracion_{nombre_empresa}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )
+                    if salir:
+                        st.markdown('<div class="alert-warning">La sesión ha sido cerrada. Puedes cerrar esta ventana.</div>', unsafe_allow_html=True)
+                        st.stop()
+                    if cancelar:
+                        st.markdown('<div class="alert-warning">Operación cancelada. Puedes subir nuevos archivos.</div>', unsafe_allow_html=True)
+                        st.stop()
+                    if aceptar:
+                        with st.spinner("Generando archivo de salida..."):
+                            df_combined = pd.concat(dfs, ignore_index=True)
+                            filas_salida = []
+                            for _, grupo in df_combined.groupby("_fecha_proceso"):
+                                fp = grupo["_fecha_proceso"].iloc[0]
+                                df_out = generar_filas_salida(grupo, fp, refs)
+                                filas_salida.append(df_out)
+                            df_final = pd.concat(filas_salida, ignore_index=True) if filas_salida else pd.DataFrame()
+                            excel_bytes = generar_excel(df_final)
+                        st.markdown('<div class="alert-success">✅ Archivo generado exitosamente.</div>', unsafe_allow_html=True)
+                        nombre_empresa = archivos[0].name[:10]
+                        st.download_button(
+                            label="⬇️ Descargar archivo de salida (.xlsx)",
+                            data=excel_bytes,
+                            file_name=f"migracion_{nombre_empresa}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                        )
+
+with nav_dt:
+    render_modulo_dt(refs)
+
+with nav_params:
+    render_parametros()
+
