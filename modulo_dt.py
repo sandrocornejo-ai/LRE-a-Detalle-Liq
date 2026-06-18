@@ -342,7 +342,9 @@ def generar_filas_dt(df, fecha_proceso, refs, df_empleados):
         # ── Lookup empresa → busca por Nombre, trae código Empresa ──
         empresa_salida = empresa_codigo
         if empresa_codigo and not df_empresas.empty and "Nombre" in df_empresas.columns:
-            emp2 = df_empresas[df_empresas["Nombre"] == empresa_codigo]
+            empresa_codigo_strip = str(empresa_codigo).strip()
+            df_empresas["_nombre_strip"] = df_empresas["Nombre"].astype(str).str.strip()
+            emp2 = df_empresas[df_empresas["_nombre_strip"] == empresa_codigo_strip]
             if not emp2.empty:
                 empresa_salida = emp2.iloc[0].get("Empresa", empresa_codigo)
 
