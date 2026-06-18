@@ -278,9 +278,10 @@ def safe_num(val, default=0):
 # ─────────────────────────────────────────────
 # GENERACIÓN DE FILAS DE SALIDA
 # ─────────────────────────────────────────────
-def generar_filas_dt(df, fecha_proceso, refs, df_empleados):
+def generar_filas_dt(df, fecha_proceso, refs, df_empleados, df_empresas_externo=None):
     """
     Genera las filas del archivo de salida desde el CSV de la DT.
+    df_empresas_externo: DataFrame de empresas ya cargado correctamente (prioritario).
     """
     filas = []
 
@@ -290,17 +291,22 @@ def generar_filas_dt(df, fecha_proceso, refs, df_empleados):
     inst_mutuales= refs.get("inst_mutuales", pd.DataFrame())
     inst_salud   = refs.get("inst_salud", pd.DataFrame())
     inst_cajas   = refs.get("inst_cajas", pd.DataFrame())
-    empresas_raw = refs.get("listado_empresas", pd.DataFrame())
 
-    # Si el DataFrame ya tiene columnas correctas (Empresa, Nombre) usarlo directo
-    # Si no, intentar cargar con header=1
-    if isinstance(empresas_raw, pd.DataFrame) and "Empresa" in empresas_raw.columns:
-        df_empresas = empresas_raw.copy()
-        if "Nombre" in df_empresas.columns:
-            df_empresas["Nombre"] = df_empresas["Nombre"].astype(str).str.strip()
-        df_empresas["Empresa"] = df_empresas["Empresa"].astype(str).str.strip()
+    # Usar df_empresas_externo si se pasó, si no intentar desde refs
+    if df_empresas_externo is not None and not df_empresas_externo.empty:
+        df_empresas = df_empresas_externo.copy()
     else:
-        df_empresas = cargar_empresas(empresas_raw)
+        empresas_raw = refs.get("listado_empresas", pd.DataFrame())
+        if isinstance(empresas_raw, pd.DataFrame) and "Empresa" in empresas_raw.columns:
+            df_empresas = empresas_raw.copy()
+        else:
+            df_empresas = cargar_empresas(empresas_raw)
+
+    # Normalizar columnas Nombre y Empresa
+    if "Nombre" in df_empresas.columns:
+        df_empresas["Nombre"] = df_empresas["Nombre"].astype(str).str.strip()
+    if "Empresa" in df_empresas.columns:
+        df_empresas["Empresa"] = df_empresas["Empresa"].astype(str).str.strip()
 
     # ── Parámetros del mes ──
     tope_salud = 0
@@ -891,7 +897,7 @@ def render_modulo_dt(refs_compartidas):
         # ── Generar archivo de salida ──
         with st.spinner("Generando archivo de salida..."):
             try:
-                df_salida, df_log_contratos = generar_filas_dt(df_dt, fecha_proceso, refs_dt, df_empleados)
+                df_salida, df_log_contratos = generar_filas_dt(df_dt, fecha_proceso, refs_dt, df_empleados, df_empresas_externo=df_empresas_periodo)
             except Exception as e:
                 st.markdown(f'<div class="alert-error">❌ Error al generar el archivo de salida: <b>{e}</b></div>', unsafe_allow_html=True)
                 return
