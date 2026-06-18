@@ -849,26 +849,6 @@ def render_modulo_dt(refs_compartidas):
             Los registros cuadran sin diferencias.
         </div>""", unsafe_allow_html=True)
 
-        # ── Mostrar log de múltiples contratos si hay ──
-        if ruts_multiples:
-            st.markdown(f"""
-            <div class="alert-warning">
-                ⚠️ <b>{len(ruts_multiples)} trabajador(es) con múltiples contratos</b> fueron excluidos del archivo de salida.<br>
-                Descarga el log para revisarlos.
-            </div>""", unsafe_allow_html=True)
-
-            with st.expander(f"👁️ Ver trabajadores excluidos ({len(ruts_multiples)})"):
-                st.dataframe(df_log_mult, use_container_width=True, hide_index=True)
-
-            log_bytes = generar_excel_log(df_log_mult)
-            st.download_button(
-                label="⬇️ Descargar log_multiples_contratos.xlsx",
-                data=log_bytes,
-                file_name=f"log_multiples_contratos_{fecha_proceso}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                key="dt_btn_log"
-            )
-
         # ── Generar archivo de salida ──
         with st.spinner("Generando archivo de salida..."):
             try:
