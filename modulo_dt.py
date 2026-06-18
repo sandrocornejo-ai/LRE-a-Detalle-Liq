@@ -7,6 +7,7 @@ para generación del archivo de liquidaciones en detalle Rex+.
 import re
 import io
 import os
+import calendar
 import pandas as pd
 import numpy as np
 import streamlit as st
@@ -413,10 +414,26 @@ def generar_filas_dt(df, fecha_proceso, refs, df_empleados, df_empresas_externo=
             if not emp2.empty and "Cotización Mutual" in df_empresas.columns:
                 cot_mutual = safe_num(emp2.iloc[0].get("Cotización Mutual", 0.93), 0.93)
 
+        # ── Días reales del mes ──
+        try:
+            anio, mes = int(fecha_proceso[:4]), int(fecha_proceso[5:7])
+            dias_reales_mes = calendar.monthrange(anio, mes)[1]
+        except Exception:
+            dias_reales_mes = 30
+
+        CONCEPTOS_LICENCIA_COMPLETA = {
+            "sueldoBase", "afp", "isapre", "cesEmpleado",
+            "impuesto", "totalesEmpl", "mutual", "sis", "cesAporteCi"
+        }
+
         # ── Generar fila por cada concepto ──
         for col_csv in cols_conceptos:
             id_concepto = equiv_map.get(col_csv, "")
             if not id_concepto:
+                continue
+
+            # Si licencia mes completo, solo incluir conceptos permitidos
+            if dias_lic == dias_reales_mes and id_concepto not in CONCEPTOS_LICENCIA_COMPLETA:
                 continue
 
             # Monto especial para isapre
