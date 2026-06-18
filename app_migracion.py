@@ -7,6 +7,7 @@ import os
 import io
 from datetime import datetime
 import calendar
+from modulo_dt import render_modulo_dt
 
 # ─────────────────────────────────────────────
 # CONFIGURACIÓN
@@ -298,6 +299,8 @@ def cargar_referencias():
         "listado_empresas": "listado_empresas.xlsx",
         "inst_mutuales": "inst_mutuales.xlsx",
         "inst_cajas": "inst_cajas.xlsx",
+        "inst_afp": "inst_afp.xlsx",
+        "inst_salud": "inst_salud.xlsx",
         "cot_afp_hist": "cot_afp_hist.xlsx",
         "parametros": "parametrosMesuales.xlsx",
     }
@@ -740,13 +743,16 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ── NAVEGACIÓN PRINCIPAL ──
-nav_migracion, nav_params = st.tabs(["📂 Migración DDJJ Previred", "⚙️ Parámetros Mensuales"])
+nav_migracion, nav_dt, nav_params = st.tabs(["📂 Migración DDJJ Previred", "🏛️ Migración DT", "⚙️ Parámetros Mensuales"])
+
+# Cargar referencias compartidas (disponibles para todos los tabs)
+refs, errores_refs = cargar_referencias()
+if errores_refs:
+    st.markdown(f'<div class="alert-warning">⚠️ Archivos de referencia no encontrados en <b>/data</b>: {", ".join(errores_refs)}</div>', unsafe_allow_html=True)
 
 with nav_migracion:
     st.markdown('<div class="section-title">📂 Migración DDJJ Previred</div>', unsafe_allow_html=True)
     st.markdown('<div class="section-sub">Sube uno o más archivos CSV del mismo RUT empresa para generar el archivo de salida en Excel.</div>', unsafe_allow_html=True)
-
-    # Cómo funciona
     col1, col2, col3 = st.columns(3)
     with col1:
         st.markdown("""
@@ -771,11 +777,6 @@ with nav_migracion:
         </div>""", unsafe_allow_html=True)
 
     st.markdown('<hr class="rex-divider">', unsafe_allow_html=True)
-
-    # Cargar referencias
-    refs, errores_refs = cargar_referencias()
-    if errores_refs:
-        st.markdown(f'<div class="alert-warning">⚠️ Archivos de referencia no encontrados en <b>/data</b>: {", ".join(errores_refs)}</div>', unsafe_allow_html=True)
 
     # Upload CSV
     st.markdown("### 📤 Subir archivos CSV")
@@ -900,6 +901,9 @@ with nav_migracion:
                             file_name=f"migracion_{nombre_empresa}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                         )
+
+with nav_dt:
+    render_modulo_dt(refs)
 
 with nav_params:
     render_parametros()
