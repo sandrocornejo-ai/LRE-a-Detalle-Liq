@@ -343,10 +343,10 @@ def generar_filas_dt(df, fecha_proceso, refs, df_empleados):
         empresa_salida = empresa_codigo
         if empresa_codigo and not df_empresas.empty and "Nombre" in df_empresas.columns:
             empresa_codigo_strip = str(empresa_codigo).strip()
-            df_empresas["_nombre_strip"] = df_empresas["Nombre"].astype(str).str.strip()
-            emp2 = df_empresas[df_empresas["_nombre_strip"] == empresa_codigo_strip]
+            df_empresas["Nombre"] = df_empresas["Nombre"].astype(str).str.strip()
+            emp2 = df_empresas[df_empresas["Nombre"] == empresa_codigo_strip]
             if not emp2.empty:
-                empresa_salida = emp2.iloc[0].get("Empresa", empresa_codigo)
+                empresa_salida = str(emp2.iloc[0].get("Empresa", empresa_codigo)).strip()
 
         # ── Valores base del trabajador ──
         dias_trab   = safe_num(row.get(COL_DIAS_TRAB, 0))
@@ -835,6 +835,10 @@ def render_modulo_dt(refs_compartidas):
                 # Leer empresas (subido por el usuario, encabezado en fila 1)
                 df_empresas_periodo = pd.read_excel(archivo_empresas, header=1)
                 df_empresas_periodo.columns = [str(c).strip() for c in df_empresas_periodo.columns]
+                if "Nombre" in df_empresas_periodo.columns:
+                    df_empresas_periodo["Nombre"] = df_empresas_periodo["Nombre"].astype(str).str.strip()
+                if "Empresa" in df_empresas_periodo.columns:
+                    df_empresas_periodo["Empresa"] = df_empresas_periodo["Empresa"].astype(str).str.strip()
 
                 # Inyectar en refs para que generar_filas_dt lo use
                 refs_dt = dict(refs_compartidas)
