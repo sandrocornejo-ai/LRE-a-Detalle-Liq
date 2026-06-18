@@ -299,6 +299,7 @@ def generar_filas_dt(df, fecha_proceso, refs, df_empleados):
     tope_salud = 0
     tope_afp   = 0
     tope_ces   = 0
+    row_params = pd.DataFrame()
     if not params_df.empty and "mes_Proc" in params_df.columns:
         params_df["mes_Proc"] = params_df["mes_Proc"].astype(str).str.strip()
         row_params = params_df[params_df["mes_Proc"] == fecha_proceso]
@@ -447,6 +448,8 @@ def generar_filas_dt(df, fecha_proceso, refs, df_empleados):
                 cot_jubilacion = monto
             elif id_concepto == "mutual":
                 cot_jubilacion = cot_mutual
+            elif id_concepto == "sis":
+                cot_jubilacion = safe_num(row_params.iloc[0].get("sis", 0)) if not row_params.empty else 0
 
             # ── Rentas no gravadas (solo si concepto = impuesto) ──
             rentas_no_grav = suma_haber_exento if id_concepto == "impuesto" else 0
@@ -757,12 +760,27 @@ def render_modulo_dt(refs_compartidas):
         help="Exportado desde Rex+. Debe contener columnas: Rut, Nombre, Empresa, Contrato."
     )
 
+    # ── Upload listado empresas ──
+    st.markdown("### 🏢 Listado de empresas del período")
+    archivo_empresas = st.file_uploader(
+        "Sube el archivo listado_empresas.xlsx del período",
+        type=["xlsx"],
+        accept_multiple_files=False,
+        key="dt_empresas_upload",
+        help="Exportado desde Rex+. Debe contener columnas: Empresa, Nombre, Cotización Mutual."
+    )
+
     if archivo_empleados:
         st.markdown(f'<div class="alert-success">✅ Listado de empleados cargado: <b>{archivo_empleados.name}</b></div>', unsafe_allow_html=True)
     else:
         st.markdown('<div class="alert-warning">⚠️ Debes subir el listado de empleados para ejecutar el proceso.</div>', unsafe_allow_html=True)
 
-    if not archivo_dt or not archivo_empleados:
+    if archivo_empresas:
+        st.markdown(f'<div class="alert-success">✅ Listado de empresas cargado: <b>{archivo_empresas.name}</b></div>', unsafe_allow_html=True)
+    else:
+        st.markdown('<div class="alert-warning">⚠️ Debes subir el listado de empresas para ejecutar el proceso.</div>', unsafe_allow_html=True)
+
+    if not archivo_dt or not archivo_empleados or not archivo_empresas:
         return
 
     st.markdown(f'<div class="alert-success">✅ Archivo DT cargado: <b>{archivo_dt.name}</b></div>', unsafe_allow_html=True)
@@ -812,6 +830,14 @@ def render_modulo_dt(refs_compartidas):
                 # Leer empleados
                 df_empleados = cargar_empleados(archivo_empleados)
 
+                # Leer empresas (subido por el usuario, encabezado en fila 1)
+                df_empresas_periodo = pd.read_excel(archivo_empresas, header=1)
+                df_empresas_periodo.columns = [str(c).strip() for c in df_empresas_periodo.columns]
+
+                # Inyectar en refs para que generar_filas_dt lo use
+                refs_dt = dict(refs_compartidas)
+                refs_dt["listado_empresas"] = df_empresas_periodo
+
                 # Ejecutar validaciones de cuadratura
                 errores_val = validar_cuadraturas_dt(df_dt, archivo_dt.name)
 
@@ -852,7 +878,7 @@ def render_modulo_dt(refs_compartidas):
         # ── Generar archivo de salida ──
         with st.spinner("Generando archivo de salida..."):
             try:
-                df_salida, df_log_contratos = generar_filas_dt(df_dt, fecha_proceso, refs_compartidas, df_empleados)
+                df_salida, df_log_contratos = generar_filas_dt(df_dt, fecha_proceso, refs_dt, df_empleados)
             except Exception as e:
                 st.markdown(f'<div class="alert-error">❌ Error al generar el archivo de salida: <b>{e}</b></div>', unsafe_allow_html=True)
                 return
