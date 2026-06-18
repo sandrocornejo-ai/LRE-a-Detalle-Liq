@@ -359,8 +359,9 @@ def generar_filas_dt(df, fecha_proceso, refs, df_empleados):
             else:
                 monto = safe_num(row.get(col_csv, 0))
 
-            # Saltar si monto es 0 (no hay movimiento)
-            if monto == 0:
+            # Saltar si monto es 0, excepto impuesto y cesEmpleado que siempre se incluyen
+            CONCEPTOS_SIEMPRE = {"impuesto", "cesEmpleado"}
+            if monto == 0 and id_concepto not in CONCEPTOS_SIEMPRE:
                 continue
 
             # ── Id de institución ──
@@ -379,6 +380,8 @@ def generar_filas_dt(df, fecha_proceso, refs, df_empleados):
                 afecto = min(suma_haber_afecto, tope_afp) if tope_afp > 0 else suma_haber_afecto
             elif id_concepto in CONCEPTOS_AFECTO_CES:
                 afecto = min(suma_haber_afecto, tope_ces) if tope_ces > 0 else suma_haber_afecto
+            elif id_concepto == "totalesEmpl":
+                afecto = suma_haber_afecto + suma_haber_exento
             else:
                 afecto = 0
 
@@ -496,6 +499,149 @@ def generar_excel_log(df_log):
 
 
 # ─────────────────────────────────────────────
+# COLUMNAS PARA VALIDACIONES (igual que Previred)
+# ─────────────────────────────────────────────
+COLS_HABERES_AFECTOS_DT = [
+    "Sueldo(2101)", "Sobresueldo(2102)", "Comisiones(2103)", "Semana corrida(2104)",
+    "Participación(2105)", "Gratificación(2106)", "Recargo 30% día domingo(2107)",
+    "Remun. variable pagada en vacaciones(2108)", "Remun. variable pagada en clausura(2109)",
+    "Aguinaldo(2110)", "Bonos u otras remun. fijas mensuales(2111)", "Tratos(2112)",
+    "Bonos u otras remun. variables mensuales o superiores a un mes(2113)",
+    "Ejercicio opción no pactada en contrato(2114)",
+    "Beneficios en especie constitutivos de remun(2115)",
+    "Remuneraciones bimestrales(2116)", "Remuneraciones trimestrales(2117)",
+    "Remuneraciones cuatrimestral(2118)", "Remuneraciones semestrales(2119)",
+    "Remuneraciones anuales(2120)", "Participación anual(2121)",
+    "Gratificación anual(2122)", "Otras remuneraciones superiores a un mes(2123)",
+    "Pago por horas de trabajo sindical(2124)", "Sueldo empresarial (2161)",
+    "Subsidio por incapacidad laboral por licencia médica(2201)",
+    "Beca de estudio(2202)", "Gratificaciones de zona(2203)"
+]
+
+COLS_HABERES_EXENTOS_DT = [
+    "Otros ingresos no constitutivos de renta(2204)", "Colación(2301)",
+    "Movilización(2302)", "Viáticos(2303)", "Asignación de pérdida de caja(2304)",
+    "Asignación de desgaste herramienta(2305)", "Asignación familiar legal(2311)",
+    "Gastos por causa del trabajo(2306)", "Gastos por cambio de residencia(2307)",
+    "Sala cuna(2308)", "Asignación trabajo a distancia o teletrabajo(2309)",
+    "Depósito convenido hasta UF 900(2347)", "Alojamiento por razones de trabajo(2310)",
+    "Asignación de traslación(2312)", "Indemnización por feriado legal(2313)",
+    "Indemnización años de servicio(2314)", "Indemnización sustitutiva del aviso previo(2315)",
+    "Indemnización fuero maternal(2316)", "Pago indemnización a todo evento(2331)",
+    "Indemnizaciones voluntarias tributables(2417)",
+    "Indemnizaciones contractuales tributables(2418)"
+]
+
+COLS_DESCUENTOS_LEGALES_DT = [
+    "Cotización obligatoria previsional (AFP o IPS)(3141)",
+    "Cotización obligatoria salud 7%(3143)", "Cotización voluntaria para salud(3144)",
+    "Cotización AFC - trabajador(3151)",
+    "Cotizaciones técnico extranjero para seguridad social fuera de Chile(3146)",
+    "Descuento depósito convenido hasta UF 900 anual(3147)",
+    "Cotización APVi Mod A(3155)", "Cotización APVi Mod B hasta UF50(3156)",
+    "Cotización APVc Mod A(3157)", "Cotización APVc Mod B hasta UF50(3158)",
+    "Impuesto retenido por remuneraciones(3161)",
+    "Impuesto retenido por indemnizaciones(3162)",
+    "Mayor retención de impuestos solicitada por el trabajador(3163)",
+    "Impuesto retenido por reliquidación remun. devengadas otros períodos(3164)",
+    "Diferencia impuesto reliquidación remun. devengadas en este período(3165)",
+    "Retención préstamo clase media 2020 (Ley 21.252) (3166)",
+    "Rebaja zona extrema DL 889 (3167)"
+]
+
+COLS_OTROS_DESCUENTOS_DT = [
+    "Cuota sindical 1(3171)", "Cuota sindical 2(3172)", "Cuota sindical 3(3173)",
+    "Cuota sindical 4(3174)", "Cuota sindical 5(3175)", "Cuota sindical 6(3176)",
+    "Cuota sindical 7(3177)", "Cuota sindical 8(3178)", "Cuota sindical 9(3179)",
+    "Cuota sindical 10(3180)", "Crédito social CCAF(3110)",
+    "Cuota vivienda o educación(3181)", "Crédito cooperativas de ahorro(3182)",
+    "Otros descuentos autorizados y solicitados por el trabajador(3183)",
+    "Cotización adicional trabajo pesado - trabajador(3154)",
+    "Donaciones culturales y de reconstrucción(3184)", "Otros descuentos(3185)",
+    "Pensiones de alimentos(3186)", "Descuento mujer casada(3187)",
+    "Descuentos por anticipos y préstamos(3188)"
+]
+
+COLS_APORTES_EMPLEADOR_DT = [
+    "AFC - Aporte empleador(4151)",
+    "Aporte empleador seguro accidentes del trabajo y Ley SANNA(4152)",
+    "Aporte adicional trabajo pesado - empleador(4154)",
+    "Aporte empleador seguro invalidez y sobrevivencia(4155)",
+    "APVC - Aporte Empleador(4157)"
+]
+
+
+def safe_sum_dt(df, cols):
+    """Suma columnas que existen en el df."""
+    cols_presentes = [c for c in cols if c in df.columns]
+    if not cols_presentes:
+        return pd.Series(0, index=df.index)
+    return df[cols_presentes].apply(pd.to_numeric, errors="coerce").fillna(0).sum(axis=1)
+
+
+def validar_cuadraturas_dt(df, nombre_archivo):
+    """Ejecuta las 6 validaciones de cuadratura para el archivo DT."""
+    errores = []
+    tol = 1
+
+    df = df.copy()
+    df["_hab_afectos"]    = safe_sum_dt(df, COLS_HABERES_AFECTOS_DT)
+    df["_hab_exentos"]    = safe_sum_dt(df, COLS_HABERES_EXENTOS_DT)
+    df["_desc_legales"]   = safe_sum_dt(df, COLS_DESCUENTOS_LEGALES_DT)
+    df["_otros_desc"]     = safe_sum_dt(df, COLS_OTROS_DESCUENTOS_DT)
+    df["_aportes_emp"]    = safe_sum_dt(df, COLS_APORTES_EMPLEADOR_DT)
+
+    validaciones = [
+        ("V1", "_hab_afectos",  "Total haberes imponibles y tributables(5210)",
+         "Haberes afectos ≠ Total haberes imponibles y tributables(5210)"),
+        ("V2", "_hab_exentos",  "Total haberes no imponibles y no tributables(5230)",
+         "Haberes exentos ≠ Total haberes no imponibles y no tributables(5230)"),
+        ("V3", "_desc_legales", "Total descuentos por cotizaciones del trabajador(5341)",
+         "Descuentos legales ≠ Total descuentos por cotizaciones del trabajador(5341)"),
+        ("V4", "_otros_desc",   "Total otros descuentos(5302)",
+         "Otros descuentos ≠ Total otros descuentos(5302)"),
+        ("V5", "_aportes_emp",  "Total aportes empleador(5410)",
+         "Aportes empleador ≠ Total aportes empleador(5410)"),
+    ]
+
+    for codigo, col_calc, col_ctrl, mensaje in validaciones:
+        if col_ctrl not in df.columns:
+            continue
+        ctrl = pd.to_numeric(df[col_ctrl], errors="coerce").fillna(0)
+        calc = df[col_calc].fillna(0)
+        mask = (calc - ctrl).abs() > tol
+        for _, row in df[mask].iterrows():
+            errores.append({
+                "Archivo":          nombre_archivo,
+                "RUT":              row.get(COL_RUT, "N/D"),
+                "Validación":       codigo,
+                "Descripción":      mensaje,
+                "Valor calculado":  round(calc[row.name], 2),
+                "Valor control":    round(ctrl[row.name], 2),
+                "Diferencia":       round(calc[row.name] - ctrl[row.name], 2)
+            })
+
+    # V6: liquidez
+    if "Total líquido(5501)" in df.columns:
+        liq_calc = (df["_hab_afectos"] + df["_hab_exentos"]) - \
+                   (df["_desc_legales"] + df["_otros_desc"])
+        liq_ctrl = pd.to_numeric(df["Total líquido(5501)"], errors="coerce").fillna(0)
+        mask = (liq_calc - liq_ctrl).abs() > tol
+        for _, row in df[mask].iterrows():
+            errores.append({
+                "Archivo":          nombre_archivo,
+                "RUT":              row.get(COL_RUT, "N/D"),
+                "Validación":       "V6",
+                "Descripción":      "(hab_afectos + hab_exentos) - (desc_legales + otros_desc) ≠ Total líquido(5501)",
+                "Valor calculado":  round(liq_calc[row.name], 2),
+                "Valor control":    round(liq_ctrl[row.name], 2),
+                "Diferencia":       round(liq_calc[row.name] - liq_ctrl[row.name], 2)
+            })
+
+    return errores
+
+
+# ─────────────────────────────────────────────
 # INTERFAZ STREAMLIT DEL MÓDULO DT
 # ─────────────────────────────────────────────
 def render_modulo_dt(refs_compartidas):
@@ -610,12 +756,42 @@ def render_modulo_dt(refs_compartidas):
                 # Detectar múltiples contratos
                 ruts_multiples, df_log_mult = detectar_multiples_contratos(df_empleados)
 
+                # Ejecutar validaciones de cuadratura
+                errores_val = validar_cuadraturas_dt(df_dt, archivo_dt.name)
+
             except Exception as e:
                 st.markdown(f'<div class="alert-error">❌ Error al leer los archivos: <b>{e}</b></div>', unsafe_allow_html=True)
                 return
 
         st.markdown('<hr class="rex-divider">', unsafe_allow_html=True)
-        st.markdown("### 🔍 Resultado del proceso")
+        st.markdown("### 🔍 Resultado de validaciones")
+
+        # ── Mostrar errores de validación si hay ──
+        if errores_val:
+            st.markdown(f"""
+            <div class="alert-error">
+                ❌ <b>No se puede generar el archivo de salida.</b><br>
+                Se encontraron <b>{len(errores_val)} error(es)</b> de validación en los registros procesados.
+            </div>""", unsafe_allow_html=True)
+
+            with st.expander("📋 Ver log de errores detallado"):
+                df_errores = pd.DataFrame(errores_val)
+                st.dataframe(df_errores, use_container_width=True, hide_index=True)
+                csv_log = df_errores.to_csv(index=False).encode("utf-8")
+                st.download_button(
+                    label="⬇️ Descargar log de errores (.csv)",
+                    data=csv_log,
+                    file_name=f"log_errores_dt_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                    mime="text/csv",
+                    key="dt_btn_log_errores"
+                )
+            return
+
+        st.markdown("""
+        <div class="alert-success">
+            ✅ <b>Todas las validaciones se cumplieron correctamente.</b><br>
+            Los registros cuadran sin diferencias.
+        </div>""", unsafe_allow_html=True)
 
         # ── Mostrar log de múltiples contratos si hay ──
         if ruts_multiples:
