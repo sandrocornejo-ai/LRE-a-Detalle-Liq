@@ -416,10 +416,12 @@ def generar_filas_dt(df, fecha_proceso, refs, df_empleados, df_empresas_externo=
 
         # ── Días reales del mes ──
         try:
-            anio, mes = int(fecha_proceso[:4]), int(fecha_proceso[5:7])
-            dias_reales_mes = calendar.monthrange(anio, mes)[1]
+            anio, mes_num = int(fecha_proceso[:4]), int(fecha_proceso[5:7])
+            dias_reales_mes = calendar.monthrange(anio, mes_num)[1]
         except Exception:
             dias_reales_mes = 30
+
+        licencia_mes_completo = int(dias_lic) == dias_reales_mes and dias_lic > 0
 
         CONCEPTOS_LICENCIA_COMPLETA = {
             "sueldoBase", "afp", "isapre", "cesEmpleado",
@@ -433,7 +435,7 @@ def generar_filas_dt(df, fecha_proceso, refs, df_empleados, df_empresas_externo=
                 continue
 
             # Si licencia mes completo, solo incluir conceptos permitidos
-            if dias_lic == dias_reales_mes and id_concepto not in CONCEPTOS_LICENCIA_COMPLETA:
+            if licencia_mes_completo and id_concepto not in CONCEPTOS_LICENCIA_COMPLETA:
                 continue
 
             # Monto especial para isapre
