@@ -338,9 +338,9 @@ def generar_filas_dt(df, fecha_proceso, refs, df_empleados, df_empresas_externo=
     # Columnas del CSV que tienen equivalencia (excluir COL_SALUD_VOL para isapre, se suma manualmente)
     cols_conceptos = [c for c in df.columns if c in equiv_map and c != COL_SALUD_VOL]
 
-    # Conceptos que se incluyen aunque monto=0 cuando hay licencia mes completo
+    # Conceptos que se incluyen cuando el trabajador tiene licencia mes completo (dias_trab = 0)
     CONCEPTOS_LICENCIA_COMPLETA = {
-        "sueldoBase", "afp", "isapre", "cesEmpleado",
+        "sueldoBase", "gratificacion", "afp", "isapre", "cesEmpleado",
         "impuesto", "totalesEmpl", "mutual", "sis", "cesAporteCi"
     }
 
@@ -427,7 +427,7 @@ def generar_filas_dt(df, fecha_proceso, refs, df_empleados, df_empresas_externo=
             if not emp2.empty and "Cotización Mutual" in df_empresas.columns:
                 cot_mutual = safe_num(emp2.iloc[0].get("Cotización Mutual", 0.93), 0.93)
 
-        licencia_mes_completo = int(dias_lic) == dias_reales_mes and dias_lic > 0
+        licencia_mes_completo = dias_trab == 0
 
         # ── Agrupar montos por concepto (suma columnas que mapean al mismo concepto) ──
         montos_por_concepto = {}
@@ -710,6 +710,10 @@ def validar_cuadraturas_dt(df, nombre_archivo):
     tol = 1
 
     df = df.copy()
+
+    # Excluir trabajadores con licencia mes completo (dias_trabajados = 0)
+    if COL_DIAS_TRAB in df.columns:
+        df = df[pd.to_numeric(df[COL_DIAS_TRAB], errors="coerce").fillna(0) != 0]
     df["_hab_afectos"]    = safe_sum_dt(df, COLS_HABERES_AFECTOS_DT)
     df["_hab_exentos"]    = safe_sum_dt(df, COLS_HABERES_EXENTOS_DT)
     df["_desc_legales"]   = safe_sum_dt(df, COLS_DESCUENTOS_LEGALES_DT)
