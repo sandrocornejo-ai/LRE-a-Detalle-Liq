@@ -338,6 +338,20 @@ def generar_filas_dt(df, fecha_proceso, refs, df_empleados, df_empresas_externo=
     # Columnas del CSV que tienen equivalencia (excluir COL_SALUD_VOL para isapre, se suma manualmente)
     cols_conceptos = [c for c in df.columns if c in equiv_map and c != COL_SALUD_VOL]
 
+    # Conceptos que se incluyen aunque monto=0 cuando hay licencia mes completo
+    CONCEPTOS_LICENCIA_COMPLETA = {
+        "sueldoBase", "afp", "isapre", "cesEmpleado",
+        "impuesto", "totalesEmpl", "mutual", "sis", "cesAporteCi"
+    }
+    CONCEPTOS_SIEMPRE = {"impuesto", "cesEmpleado"} | CONCEPTOS_LICENCIA_COMPLETA
+
+    # Días reales del mes (calculado una sola vez)
+    try:
+        anio_fp, mes_fp = int(fecha_proceso[:4]), int(fecha_proceso[5:7])
+        dias_reales_mes = calendar.monthrange(anio_fp, mes_fp)[1]
+    except Exception:
+        dias_reales_mes = 30
+
     # ── Registro de problemas de contrato (para log) ──
     ruts_problema = {}   # rut → motivo
     filas = []
@@ -414,19 +428,7 @@ def generar_filas_dt(df, fecha_proceso, refs, df_empleados, df_empresas_externo=
             if not emp2.empty and "Cotización Mutual" in df_empresas.columns:
                 cot_mutual = safe_num(emp2.iloc[0].get("Cotización Mutual", 0.93), 0.93)
 
-        # ── Días reales del mes ──
-        try:
-            anio, mes_num = int(fecha_proceso[:4]), int(fecha_proceso[5:7])
-            dias_reales_mes = calendar.monthrange(anio, mes_num)[1]
-        except Exception:
-            dias_reales_mes = 30
-
         licencia_mes_completo = int(dias_lic) == dias_reales_mes and dias_lic > 0
-
-        CONCEPTOS_LICENCIA_COMPLETA = {
-            "sueldoBase", "afp", "isapre", "cesEmpleado",
-            "impuesto", "totalesEmpl", "mutual", "sis", "cesAporteCi"
-        }
 
         # ── Generar fila por cada concepto ──
         for col_csv in cols_conceptos:
@@ -445,7 +447,6 @@ def generar_filas_dt(df, fecha_proceso, refs, df_empleados, df_empresas_externo=
                 monto = safe_num(row.get(col_csv, 0))
 
             # Saltar si monto es 0, excepto conceptos que siempre se incluyen
-            CONCEPTOS_SIEMPRE = {"impuesto", "cesEmpleado"} | CONCEPTOS_LICENCIA_COMPLETA
             if monto == 0 and id_concepto not in CONCEPTOS_SIEMPRE:
                 continue
 
