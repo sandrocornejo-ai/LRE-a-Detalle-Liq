@@ -869,12 +869,14 @@ with nav_migracion:
                     with st.expander("📋 Ver log de errores detallado"):
                         df_errores = pd.DataFrame(todos_errores)
                         st.dataframe(df_errores, use_container_width=True, hide_index=True)
-                        csv_log = df_errores.to_csv(index=False).encode("utf-8")
+                        excel_log = io.BytesIO()
+                        df_errores.to_excel(excel_log, index=False, sheet_name="Log errores")
+                        excel_log.seek(0)
                         st.download_button(
-                            label="⬇️ Descargar log de errores (.csv)",
-                            data=csv_log,
-                            file_name=f"log_errores_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                            mime="text/csv"
+                            label="⬇️ Descargar log de errores (.xlsx)",
+                            data=excel_log,
+                            file_name=f"log_errores_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                         )
                 else:
                     st.markdown("""
