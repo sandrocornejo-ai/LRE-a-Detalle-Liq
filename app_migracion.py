@@ -758,7 +758,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ── NAVEGACIÓN PRINCIPAL ──
-nav_migracion, nav_dt, nav_params = st.tabs(["📂 Migración DDJJ Previred", "🏛️ Migración DT", "⚙️ Parámetros Mensuales"])
+nav_migracion, nav_dt = st.tabs(["📂 Migración DDJJ Previred", "🏛️ Migración DT"])
 
 # Cargar referencias compartidas (disponibles para todos los tabs)
 refs, errores_refs = cargar_referencias()
@@ -920,6 +920,4 @@ with nav_migracion:
 with nav_dt:
     render_modulo_dt(refs)
 
-with nav_params:
-    render_parametros()
 
