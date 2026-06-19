@@ -343,7 +343,6 @@ def generar_filas_dt(df, fecha_proceso, refs, df_empleados, df_empresas_externo=
         "sueldoBase", "afp", "isapre", "cesEmpleado",
         "impuesto", "totalesEmpl", "mutual", "sis", "cesAporteCi"
     }
-    CONCEPTOS_SIEMPRE = {"impuesto", "cesEmpleado"} | CONCEPTOS_LICENCIA_COMPLETA
 
     # Días reales del mes (calculado una sola vez)
     try:
@@ -447,7 +446,10 @@ def generar_filas_dt(df, fecha_proceso, refs, df_empleados, df_empresas_externo=
                 monto = safe_num(row.get(col_csv, 0))
 
             # Saltar si monto es 0, excepto conceptos que siempre se incluyen
-            if monto == 0 and id_concepto not in CONCEPTOS_SIEMPRE:
+            conceptos_siempre = {"impuesto", "cesEmpleado"}
+            if licencia_mes_completo:
+                conceptos_siempre = conceptos_siempre | CONCEPTOS_LICENCIA_COMPLETA
+            if monto == 0 and id_concepto not in conceptos_siempre:
                 continue
 
             # ── Id de institución ──
