@@ -429,26 +429,30 @@ def generar_filas_dt(df, fecha_proceso, refs, df_empleados, df_empresas_externo=
 
         licencia_mes_completo = int(dias_lic) == dias_reales_mes and dias_lic > 0
 
-        # ── Generar fila por cada concepto ──
+        # ── Agrupar montos por concepto (suma columnas que mapean al mismo concepto) ──
+        montos_por_concepto = {}
         for col_csv in cols_conceptos:
             id_concepto = equiv_map.get(col_csv, "")
             if not id_concepto:
                 continue
+            if id_concepto == "isapre":
+                monto = monto_isapre
+            else:
+                monto = safe_num(row.get(col_csv, 0))
+            montos_por_concepto[id_concepto] = montos_por_concepto.get(id_concepto, 0) + monto
+
+        # ── Generar fila por cada concepto ──
+        conceptos_siempre = {"impuesto", "cesEmpleado"}
+        if licencia_mes_completo:
+            conceptos_siempre = conceptos_siempre | CONCEPTOS_LICENCIA_COMPLETA
+
+        for id_concepto, monto in montos_por_concepto.items():
 
             # Si licencia mes completo, solo incluir conceptos permitidos
             if licencia_mes_completo and id_concepto not in CONCEPTOS_LICENCIA_COMPLETA:
                 continue
 
-            # Monto especial para isapre
-            if id_concepto == "isapre":
-                monto = monto_isapre
-            else:
-                monto = safe_num(row.get(col_csv, 0))
-
             # Saltar si monto es 0, excepto conceptos que siempre se incluyen
-            conceptos_siempre = {"impuesto", "cesEmpleado"}
-            if licencia_mes_completo:
-                conceptos_siempre = conceptos_siempre | CONCEPTOS_LICENCIA_COMPLETA
             if monto == 0 and id_concepto not in conceptos_siempre:
                 continue
 
