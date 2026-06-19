@@ -444,8 +444,8 @@ def generar_filas_dt(df, fecha_proceso, refs, df_empleados, df_empresas_externo=
             else:
                 monto = safe_num(row.get(col_csv, 0))
 
-            # Saltar si monto es 0, excepto impuesto y cesEmpleado que siempre se incluyen
-            CONCEPTOS_SIEMPRE = {"impuesto", "cesEmpleado"}
+            # Saltar si monto es 0, excepto conceptos que siempre se incluyen
+            CONCEPTOS_SIEMPRE = {"impuesto", "cesEmpleado"} | CONCEPTOS_LICENCIA_COMPLETA
             if monto == 0 and id_concepto not in CONCEPTOS_SIEMPRE:
                 continue
 
