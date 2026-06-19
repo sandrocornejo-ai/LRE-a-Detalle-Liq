@@ -445,6 +445,11 @@ def generar_filas_dt(df, fecha_proceso, refs, df_empleados, df_empresas_externo=
         conceptos_siempre = {"impuesto", "cesEmpleado"}
         if licencia_mes_completo:
             conceptos_siempre = conceptos_siempre | CONCEPTOS_LICENCIA_COMPLETA
+            # Asegurar que todos los conceptos de licencia completa estén presentes
+            # aunque su columna no exista en el CSV o su monto sea 0
+            for c in CONCEPTOS_LICENCIA_COMPLETA:
+                if c not in montos_por_concepto:
+                    montos_por_concepto[c] = 0
 
         for id_concepto, monto in montos_por_concepto.items():
 
