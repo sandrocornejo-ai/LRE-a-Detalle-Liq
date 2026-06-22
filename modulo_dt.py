@@ -18,24 +18,210 @@ from datetime import datetime
 
 
 # ─────────────────────────────────────────────
-# CONSTANTES
+# CONSTANTES — códigos de columnas LRE (DT)
 # ─────────────────────────────────────────────
-COL_RUT           = "Rut trabajador(1101)"
-COL_DIAS_TRAB     = "Nro días trabajados en el mes(1115)"
-COL_DIAS_LIC      = "Nro días de licencia médica en el mes(1116)"
-COL_DIAS_VAC      = "Nro días de vacaciones en el mes(1117)"
-COL_SUELDO        = "Sueldo(2101)"
-COL_SALUD7        = "Cotización obligatoria salud 7%(3143)"
-COL_SALUD_VOL     = "Cotización voluntaria para salud(3144)"
-COL_AFP           = "Cotización obligatoria previsional (AFP o IPS)(3141)"
-COL_CES_TRAB      = "Cotización AFC - trabajador(3151)"
-COL_APVI_MOD_B    = "Cotización APVi Mod B hasta UF50(3156)"
-COL_TRAB_PESADO   = "Cotización adicional trabajo pesado - trabajador(3154)"
-COL_REBAJA_ZONA   = "Rebaja zona extrema DL 889 (3167)"
-COL_AFP_INST      = "AFP(1141)"
-COL_ISAPRE_INST   = "FONASA - ISAPRE(1143)"
-COL_MUTUAL_INST   = "Org. administrador ley 16.744(1152)"
-COL_CCAF_INST     = "CCAF(1110)"
+COD_RUT           = 1101
+COD_DIAS_TRAB     = 1115
+COD_DIAS_LIC      = 1116
+COD_DIAS_VAC      = 1117
+COD_SUELDO        = 2101
+COD_SALUD7        = 3143
+COD_SALUD_VOL     = 3144
+COD_AFP           = 3141
+COD_CES_TRAB      = 3151
+COD_APVI_MOD_B    = 3156
+COD_TRAB_PESADO   = 3154
+COD_REBAJA_ZONA   = 3167
+COD_AFP_INST      = 1141
+COD_ISAPRE_INST   = 1143
+COD_MUTUAL_INST   = 1152
+COD_CCAF_INST     = 1110
+
+# ─────────────────────────────────────────────
+# DICCIONARIO DE COLUMNAS LRE (DT)
+# Fuente: Cod_Colum_Lre.xlsx — actualizar aquí si cambia
+# ─────────────────────────────────────────────
+LRE_COLUMNAS = {
+    1101: "Rut trabajador (1101)",
+    1102: "Fecha inicio contrato (1102)",
+    1103: "Fecha término de contrato (1103)",
+    1104: "Causal término de contrato (1104)",
+    1105: "Región prestación de servicios (1105)",
+    1106: "Comuna prestación de servicios (1106)",
+    1170: "Tipo impuesto a la renta (1170)",
+    1146: "Técnico extranjero exención cot. previsionales (1146)",
+    1107: "Código tipo de jornada (1107)",
+    1108: "Persona con Discapacidad - Pensionado por Invalidez (1108)",
+    1109: "Pensionado por vejez (1109)",
+    1141: "AFP (1141)",
+    1142: "IPS (ExINP) (1142)",
+    1143: "FONASA - ISAPRE (1143)",
+    1151: "AFC (1151)",
+    1110: "CCAF (1110)",
+    1152: "Org. administrador ley 16.744 (1152)",
+    1111: "Nro cargas familiares legales autorizadas (1111)",
+    1112: "Nro de cargas familiares maternales (1112)",
+    1113: "Nro de cargas familiares invalidez (1113)",
+    1114: "Tramo asignación familiar (1114)",
+    1171: "Rut org sindical 1 (1171)",
+    1172: "Rut org sindical 2 (1172)",
+    1173: "Rut org sindical 3 (1173)",
+    1174: "Rut org sindical 4 (1174)",
+    1175: "Rut org sindical 5 (1175)",
+    1176: "Rut org sindical 6 (1176)",
+    1177: "Rut org sindical 7 (1177)",
+    1178: "Rut org sindical 8 (1178)",
+    1179: "Rut org sindical 9 (1179)",
+    1180: "Rut org sindical 10 (1180)",
+    1115: "Nro días trabajados en el mes (1115)",
+    1116: "Nro días de licencia médica en el mes (1116)",
+    1117: "Nro días de vacaciones en el mes (1117)",
+    1118: "Subsidio trabajador joven (1118)",
+    1154: "Puesto Trabajo Pesado (1154)",
+    1155: "APVI (1155)",
+    1157: "APVC (1157)",
+    1131: "Indemnización a todo evento (1131)",
+    1132: "Tasa indemnización a todo evento (1132)",
+    2101: "Sueldo (2101)",
+    2102: "Sobresueldo (2102)",
+    2103: "Comisiones (2103)",
+    2104: "Semana corrida (2104)",
+    2105: "Participación (2105)",
+    2106: "Gratificación (2106)",
+    2107: "Recargo 30% día domingo (2107)",
+    2108: "Remun. variable pagada en vacaciones (2108)",
+    2109: "Remun. variable pagada en clausura (2109)",
+    2110: "Aguinaldo (2110)",
+    2111: "Bonos u otras remun. fijas mensuales (2111)",
+    2112: "Tratos (2112)",
+    2113: "Bonos u otras remun. variables mensuales o superiores a un mes (2113)",
+    2114: "Ejercicio opción no pactada en contrato (2114)",
+    2115: "Beneficios en especie constitutivos de remun (2115)",
+    2116: "Remuneraciones bimestrales (2116)",
+    2117: "Remuneraciones trimestrales (2117)",
+    2118: "Remuneraciones cuatrimestral (2118)",
+    2119: "Remuneraciones semestrales (2119)",
+    2120: "Remuneraciones anuales (2120)",
+    2121: "Participación anual (2121)",
+    2122: "Gratificación anual (2122)",
+    2123: "Otras remuneraciones superiores a un mes (2123)",
+    2124: "Pago por horas de trabajo sindical (2124)",
+    2161: "Sueldo empresarial  (2161)",
+    2201: "Subsidio por incapacidad laboral por licencia médica (2201)",
+    2202: "Beca de estudio (2202)",
+    2203: "Gratificaciones de zona (2203)",
+    2204: "Otros ingresos no constitutivos de renta (2204)",
+    2301: "Colación (2301)",
+    2302: "Movilización (2302)",
+    2303: "Viáticos (2303)",
+    2304: "Asignación de pérdida de caja (2304)",
+    2305: "Asignación de desgaste herramienta (2305)",
+    2311: "Asignación familiar legal (2311)",
+    2306: "Gastos por causa del trabajo (2306)",
+    2307: "Gastos por cambio de residencia (2307)",
+    2308: "Sala cuna (2308)",
+    2309: "Asignación trabajo a distancia o teletrabajo (2309)",
+    2347: "Depósito convenido hasta UF 900 (2347)",
+    2310: "Alojamiento por razones de trabajo (2310)",
+    2312: "Asignación de traslación (2312)",
+    2313: "Indemnización por feriado legal (2313)",
+    2314: "Indemnización años de servicio (2314)",
+    2315: "Indemnización sustitutiva del aviso previo (2315)",
+    2316: "Indemnización fuero maternal (2316)",
+    2331: "Pago indemnización a todo evento (2331)",
+    2417: "Indemnizaciones voluntarias tributables (2417)",
+    2418: "Indemnizaciones contractuales tributables (2418)",
+    3141: "Cotización obligatoria previsional (AFP o IPS) (3141)",
+    3143: "Cotización obligatoria salud 7% (3143)",
+    3144: "Cotización voluntaria para salud (3144)",
+    3151: "Cotización AFC - trabajador (3151)",
+    3146: "Cotizaciones técnico extranjero para seguridad social fuera de Chile (3146)",
+    3147: "Descuento depósito convenido hasta UF 900 anual (3147)",
+    3155: "Cotización APVi Mod A (3155)",
+    3156: "Cotización APVi Mod B hasta UF50 (3156)",
+    3157: "Cotización APVc Mod A (3157)",
+    3158: "Cotización APVc Mod B hasta UF50 (3158)",
+    3161: "Impuesto retenido por remuneraciones (3161)",
+    3162: "Impuesto retenido por indemnizaciones (3162)",
+    3163: "Mayor retención de impuestos solicitada por el trabajador (3163)",
+    3164: "Impuesto retenido por reliquidación remun. devengadas otros períodos (3164)",
+    3165: "Diferencia impuesto reliquidación remun. devengadas en este período (3165)",
+    3166: "Retención préstamo clase media 2020 (Ley 21.252)  (3166)",
+    3167: "Rebaja zona extrema DL 889  (3167)",
+    3171: "Cuota sindical 1 (3171)",
+    3172: "Cuota sindical 2 (3172)",
+    3173: "Cuota sindical 3 (3173)",
+    3174: "Cuota sindical 4 (3174)",
+    3175: "Cuota sindical 5 (3175)",
+    3176: "Cuota sindical 6 (3176)",
+    3177: "Cuota sindical 7 (3177)",
+    3178: "Cuota sindical 8 (3178)",
+    3179: "Cuota sindical 9 (3179)",
+    3180: "Cuota sindical 10 (3180)",
+    3110: "Crédito social CCAF (3110)",
+    3181: "Cuota vivienda o educación (3181)",
+    3182: "Crédito cooperativas de ahorro (3182)",
+    3183: "Otros descuentos autorizados y solicitados por el trabajador (3183)",
+    3154: "Cotización adicional trabajo pesado - trabajador (3154)",
+    3184: "Donaciones culturales y de reconstrucción (3184)",
+    3185: "Otros descuentos (3185)",
+    3186: "Pensiones de alimentos (3186)",
+    3187: "Descuento mujer casada (3187)",
+    3188: "Descuentos por anticipos y préstamos (3188)",
+    4151: "AFC - Aporte empleador (4151)",
+    4152: "Aporte empleador seguro accidentes del trabajo y Ley SANNA (4152)",
+    4131: "Aporte empleador indemnización a todo evento (4131)",
+    4154: "Aporte adicional trabajo pesado - empleador (4154)",
+    4155: "Aporte empleador seguro invalidez y sobrevivencia (4155)",
+    4157: "APVC - Aporte Empleador (4157)",
+    5201: "Total haberes (5201)",
+    5210: "Total haberes imponibles y tributables (5210)",
+    5220: "Total haberes imponibles no tributables (5220)",
+    5230: "Total haberes no imponibles y no tributables (5230)",
+    5240: "Total haberes no imponibles y tributables (5240)",
+    5301: "Total descuentos (5301)",
+    5361: "Total descuentos impuestos a las remuneraciones (5361)",
+    5362: "Total descuentos impuestos por indemnizaciones (5362)",
+    5341: "Total descuentos por cotizaciones del trabajador (5341)",
+    5302: "Total otros descuentos (5302)",
+    5410: "Total aportes empleador (5410)",
+    5501: "Total líquido (5501)",
+    5502: "Total indemnizaciones (5502)",
+    5564: "Total indemnizaciones tributables (5564)",
+    5565: "Total indemnizaciones no tributables (5565)",
+}
+
+# ─────────────────────────────────────────────
+# FUNCIÓN DE BÚSQUEDA DE COLUMNA POR CÓDIGO
+# ─────────────────────────────────────────────
+def find_col(df, codigo):
+    """Retorna el nombre de columna del DataFrame que contiene (codigo).
+    Busca primero por el nombre oficial en LRE_COLUMNAS, luego por patrón (codigo)."""
+    nombre_oficial = LRE_COLUMNAS.get(codigo, "")
+    if nombre_oficial and nombre_oficial in df.columns:
+        return nombre_oficial
+    # Fallback: buscar por patrón en caso de variación de nombre
+    patron = f"({codigo})"
+    for c in df.columns:
+        if patron in c:
+            return c
+    return None
+
+def get_val(row, df, codigo, default=0):
+    """Retorna el valor de la columna con ese código para una fila."""
+    col = find_col(df, codigo)
+    if col and col in row.index:
+        v = pd.to_numeric(row[col], errors="coerce")
+        return v if pd.notna(v) else default
+    return default
+
+def safe_sum_by_codes(df, codigos):
+    """Suma columnas identificadas por código numérico."""
+    cols = [find_col(df, c) for c in codigos]
+    cols = [c for c in cols if c is not None and c in df.columns]
+    if not cols:
+        return pd.Series(0, index=df.index)
+    return df[cols].apply(pd.to_numeric, errors="coerce").fillna(0).sum(axis=1)
 
 CONCEPTOS_AFECTO_AFP = {"mutual", "sis", "trabajoPesaEmpl", "afp", "isapre"}
 CONCEPTOS_AFECTO_CES = {"cesAporteCi", "cesAporteSol", "cesEmpleado"}
@@ -76,9 +262,88 @@ def leer_csv_dt(file_obj):
     return df
 
 
-# ─────────────────────────────────────────────
-# EXTRACCIÓN DE FECHA DESDE NOMBRE DE ARCHIVO
-# ─────────────────────────────────────────────
+def validar_columnas_lre(df):
+    """Compara las columnas del CSV contra LRE_COLUMNAS.
+    Retorna dos listas: diferencias (nombre distinto) y desconocidas (código no existe)."""
+    diferencias = []
+    desconocidas = []
+    nombres_oficiales = set(LRE_COLUMNAS.values())
+
+    for col in df.columns:
+        if col in nombres_oficiales:
+            continue  # coincide exactamente
+        # Buscar si algún código conocido está en el nombre de la columna
+        codigo_encontrado = None
+        for cod, nombre_oficial in LRE_COLUMNAS.items():
+            if f"({cod})" in col:
+                codigo_encontrado = cod
+                nombre_oficial_cod = nombre_oficial
+                break
+        if codigo_encontrado:
+            # El código existe pero el nombre difiere
+            diferencias.append({
+                "Código": codigo_encontrado,
+                "Nombre en archivo": col,
+                "Nombre oficial LRE": nombre_oficial_cod,
+            })
+        else:
+            # Columna completamente desconocida
+            desconocidas.append(col)
+
+    return diferencias, desconocidas
+
+
+def mostrar_aviso_columnas(diferencias, desconocidas):
+    """Muestra avisos de diferencias y columnas desconocidas. 
+    Permite agregar columnas nuevas al diccionario en sesión."""
+
+    # ── Aviso 1: nombres distintos (amarillo) ──
+    if diferencias:
+        st.markdown("""
+        <div class="alert-warning">
+            ⚠️ <b>Columnas con nombre distinto al LRE oficial.</b>
+            El proceso continúa usando el código numérico como referencia.
+            Avisa a tu equipo técnico para actualizar el diccionario.
+        </div>""", unsafe_allow_html=True)
+        with st.expander("📋 Ver detalle de diferencias de nombre"):
+            st.dataframe(pd.DataFrame(diferencias), use_container_width=True, hide_index=True)
+
+    # ── Aviso 2: columnas desconocidas (rojo) ──
+    if desconocidas:
+        st.markdown(f"""
+        <div class="alert-error">
+            ❌ <b>Se detectaron {len(desconocidas)} columna(s) desconocida(s)</b> que no existen en el diccionario LRE.<br>
+            Puedes incorporarlas a continuación para esta sesión. Luego avisa a tu equipo técnico para actualizarlas permanentemente en el código.
+        </div>""", unsafe_allow_html=True)
+
+        with st.expander("➕ Incorporar columnas desconocidas al diccionario"):
+            for col_desc in desconocidas:
+                st.markdown(f"**Columna:** `{col_desc}`")
+                col_a, col_b, col_c = st.columns([2, 2, 1])
+                with col_a:
+                    nombre_ingresado = st.text_input(
+                        "Nombre oficial",
+                        value=col_desc,
+                        key=f"nombre_{col_desc}"
+                    )
+                with col_b:
+                    codigo_ingresado = st.number_input(
+                        "Código numérico",
+                        min_value=1000,
+                        max_value=9999,
+                        value=1000,
+                        step=1,
+                        key=f"codigo_{col_desc}"
+                    )
+                with col_c:
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    if st.button("✅ Agregar", key=f"btn_{col_desc}"):
+                        LRE_COLUMNAS[int(codigo_ingresado)] = nombre_ingresado
+                        st.success(f"Columna `{nombre_ingresado}` agregada con código {codigo_ingresado} para esta sesión.")
+                st.markdown("---")
+
+
+
 def extraer_fecha_dt(nombre_archivo):
     """
     Intenta extraer yyyy-mm del nombre del archivo.
@@ -335,8 +600,9 @@ def generar_filas_dt(df, fecha_proceso, refs, df_empleados, df_empresas_externo=
                 equiv_map[col_csv] = concepto
             tipo_map[concepto] = tipo
 
-    # Columnas del CSV que tienen equivalencia (excluir COL_SALUD_VOL para isapre, se suma manualmente)
-    cols_conceptos = [c for c in df.columns if c in equiv_map and c != COL_SALUD_VOL]
+    # Columnas del CSV que tienen equivalencia (excluir col salud voluntaria para isapre, se suma manualmente)
+    col_salud_vol = find_col(df, COD_SALUD_VOL)
+    cols_conceptos = [c for c in df.columns if c in equiv_map and c != col_salud_vol]
 
     # Conceptos que se incluyen cuando el trabajador tiene licencia mes completo (dias_trab = 0)
     CONCEPTOS_LICENCIA_COMPLETA = {
@@ -351,12 +617,29 @@ def generar_filas_dt(df, fecha_proceso, refs, df_empleados, df_empresas_externo=
     except Exception:
         dias_reales_mes = 30
 
+    # Nombres de columna resueltos una sola vez
+    col_rut         = find_col(df, COD_RUT)
+    col_dias_trab   = find_col(df, COD_DIAS_TRAB)
+    col_dias_lic    = find_col(df, COD_DIAS_LIC)
+    col_dias_vac    = find_col(df, COD_DIAS_VAC)
+    col_sueldo      = find_col(df, COD_SUELDO)
+    col_rebaja_zona = find_col(df, COD_REBAJA_ZONA)
+    col_salud7      = find_col(df, COD_SALUD7)
+    col_afp         = find_col(df, COD_AFP)
+    col_ces_trab    = find_col(df, COD_CES_TRAB)
+    col_apvi_mod_b  = find_col(df, COD_APVI_MOD_B)
+    col_trab_pesado = find_col(df, COD_TRAB_PESADO)
+    col_afp_inst    = find_col(df, COD_AFP_INST)
+    col_isapre_inst = find_col(df, COD_ISAPRE_INST)
+    col_mutual_inst = find_col(df, COD_MUTUAL_INST)
+    col_ccaf_inst   = find_col(df, COD_CCAF_INST)
+
     # ── Registro de problemas de contrato (para log) ──
     ruts_problema = {}   # rut → motivo
     filas = []
 
     for _, row in df.iterrows():
-        rut = str(row.get(COL_RUT, "")).strip()
+        rut = str(row.get(col_rut, "")).strip() if col_rut else ""
 
         # ── Resolver contrato ──
         numero_contrato, empresa_codigo, ok, motivo = resolver_contrato(
@@ -376,11 +659,11 @@ def generar_filas_dt(df, fecha_proceso, refs, df_empleados, df_empresas_externo=
                 empresa_salida = str(emp2.iloc[0].get("Empresa", empresa_codigo)).strip()
 
         # ── Valores base del trabajador ──
-        dias_trab   = safe_num(row.get(COL_DIAS_TRAB, 0))
-        dias_lic    = safe_num(row.get(COL_DIAS_LIC, 0))
-        dias_vac    = safe_num(row.get(COL_DIAS_VAC, 0))
-        sueldo      = safe_num(row.get(COL_SUELDO, 0))
-        rebaja_zona = safe_num(row.get(COL_REBAJA_ZONA, 0))
+        dias_trab   = safe_num(row.get(col_dias_trab, 0) if col_dias_trab else 0)
+        dias_lic    = safe_num(row.get(col_dias_lic, 0) if col_dias_lic else 0)
+        dias_vac    = safe_num(row.get(col_dias_vac, 0) if col_dias_vac else 0)
+        sueldo      = safe_num(row.get(col_sueldo, 0) if col_sueldo else 0)
+        rebaja_zona = safe_num(row.get(col_rebaja_zona, 0) if col_rebaja_zona else 0)
 
         monto_init = round((sueldo / dias_trab) * 30, 0) if dias_trab > 0 else 0
 
@@ -395,23 +678,25 @@ def generar_filas_dt(df, fecha_proceso, refs, df_empleados, df_empresas_externo=
         suma_haber_exento = sum(safe_num(row.get(c, 0)) for c in conceptos_haber_exento)
 
         # ── Monto isapre (caso especial: suma dos columnas) ──
-        monto_isapre = safe_num(row.get(COL_SALUD7, 0)) + safe_num(row.get(COL_SALUD_VOL, 0))
+        monto_isapre = (safe_num(row.get(col_salud7, 0) if col_salud7 else 0) +
+                        safe_num(row.get(col_salud_vol, 0) if col_salud_vol else 0))
 
         # ── Total rebajas por LLSS (solo para concepto impuesto) ──
-        salud_trab = safe_num(row.get(COL_SALUD7, 0)) + safe_num(row.get(COL_SALUD_VOL, 0))
+        salud_trab = (safe_num(row.get(col_salud7, 0) if col_salud7 else 0) +
+                      safe_num(row.get(col_salud_vol, 0) if col_salud_vol else 0))
         total_rebajas_llss = (
-            safe_num(row.get(COL_AFP, 0))
-            + safe_num(row.get(COL_CES_TRAB, 0))
-            + safe_num(row.get(COL_APVI_MOD_B, 0))
-            + safe_num(row.get(COL_TRAB_PESADO, 0))
+            safe_num(row.get(col_afp, 0) if col_afp else 0)
+            + safe_num(row.get(col_ces_trab, 0) if col_ces_trab else 0)
+            + safe_num(row.get(col_apvi_mod_b, 0) if col_apvi_mod_b else 0)
+            + safe_num(row.get(col_trab_pesado, 0) if col_trab_pesado else 0)
             + min(salud_trab, tope_salud) if tope_salud > 0 else salud_trab
         )
 
         # ── Código de institución del trabajador ──
-        cod_afp_inst    = safe_num(row.get(COL_AFP_INST, 0))
-        cod_isapre_inst = safe_num(row.get(COL_ISAPRE_INST, 0))
-        cod_mutual_inst = safe_num(row.get(COL_MUTUAL_INST, 0))
-        cod_ccaf_inst   = safe_num(row.get(COL_CCAF_INST, 0))
+        cod_afp_inst    = safe_num(row.get(col_afp_inst, 0) if col_afp_inst else 0)
+        cod_isapre_inst = safe_num(row.get(col_isapre_inst, 0) if col_isapre_inst else 0)
+        cod_mutual_inst = safe_num(row.get(col_mutual_inst, 0) if col_mutual_inst else 0)
+        cod_ccaf_inst   = safe_num(row.get(col_ccaf_inst, 0) if col_ccaf_inst else 0)
 
         # ── Lookup instituciones ──
         id_afp_trab    = lookup(inst_afp,      "cod_lre", cod_afp_inst,    "id_afp",    "")
@@ -631,165 +916,160 @@ def generar_excel_log(df_log):
 # ─────────────────────────────────────────────
 # COLUMNAS PARA VALIDACIONES (igual que Previred)
 # ─────────────────────────────────────────────
-COLS_HABERES_AFECTOS_DT = [
-    "Sueldo(2101)", "Sobresueldo(2102)", "Comisiones(2103)", "Semana corrida(2104)",
-    "Participación(2105)", "Gratificación(2106)", "Recargo 30% día domingo(2107)",
-    "Remun. variable pagada en vacaciones(2108)", "Remun. variable pagada en clausura(2109)",
-    "Aguinaldo(2110)", "Bonos u otras remun. fijas mensuales(2111)", "Tratos(2112)",
-    "Bonos u otras remun. variables mensuales o superiores a un mes(2113)",
-    "Ejercicio opción no pactada en contrato(2114)",
-    "Beneficios en especie constitutivos de remun(2115)",
-    "Remuneraciones bimestrales(2116)", "Remuneraciones trimestrales(2117)",
-    "Remuneraciones cuatrimestral(2118)", "Remuneraciones semestrales(2119)",
-    "Remuneraciones anuales(2120)", "Participación anual(2121)",
-    "Gratificación anual(2122)", "Otras remuneraciones superiores a un mes(2123)",
-    "Pago por horas de trabajo sindical(2124)", "Sueldo empresarial (2161)",
-    "Subsidio por incapacidad laboral por licencia médica(2201)",
-    "Beca de estudio(2202)", "Gratificaciones de zona(2203)"
+CODES_HABERES_AFECTOS_DT = [
+    2101, 2102, 2103, 2104, 2105, 2106, 2107, 2108, 2109, 2110,
+    2111, 2112, 2113, 2114, 2115, 2116, 2117, 2118, 2119, 2120,
+    2121, 2122, 2123, 2124, 2161, 2201, 2202, 2203
 ]
 
-COLS_HABERES_EXENTOS_DT = [
-    "Otros ingresos no constitutivos de renta(2204)", "Colación(2301)",
-    "Movilización(2302)", "Viáticos(2303)", "Asignación de pérdida de caja(2304)",
-    "Asignación de desgaste herramienta(2305)", "Asignación familiar legal(2311)",
-    "Gastos por causa del trabajo(2306)", "Gastos por cambio de residencia(2307)",
-    "Sala cuna(2308)", "Asignación trabajo a distancia o teletrabajo(2309)",
-    "Depósito convenido hasta UF 900(2347)", "Alojamiento por razones de trabajo(2310)",
-    "Asignación de traslación(2312)", "Indemnización por feriado legal(2313)",
-    "Indemnización años de servicio(2314)", "Indemnización sustitutiva del aviso previo(2315)",
-    "Indemnización fuero maternal(2316)", "Pago indemnización a todo evento(2331)",
-    "Indemnizaciones voluntarias tributables(2417)",
-    "Indemnizaciones contractuales tributables(2418)"
+CODES_HABERES_EXENTOS_DT = [
+    2204, 2301, 2302, 2303, 2304, 2305, 2311, 2306, 2307, 2308,
+    2309, 2347, 2310, 2312, 2313, 2314, 2315, 2316, 2331, 2417, 2418
 ]
 
-COLS_DESCUENTOS_LEGALES_DT = [
-    "Cotización obligatoria previsional (AFP o IPS)(3141)",
-    "Cotización obligatoria salud 7%(3143)", "Cotización voluntaria para salud(3144)",
-    "Cotización AFC - trabajador(3151)",
-    "Cotizaciones técnico extranjero para seguridad social fuera de Chile(3146)",
-    "Descuento depósito convenido hasta UF 900 anual(3147)",
-    "Cotización APVi Mod A(3155)", "Cotización APVi Mod B hasta UF50(3156)",
-    "Cotización APVc Mod A(3157)", "Cotización APVc Mod B hasta UF50(3158)",
-    "Impuesto retenido por remuneraciones(3161)",
-    "Impuesto retenido por indemnizaciones(3162)",
-    "Mayor retención de impuestos solicitada por el trabajador(3163)",
-    "Impuesto retenido por reliquidación remun. devengadas otros períodos(3164)",
-    "Diferencia impuesto reliquidación remun. devengadas en este período(3165)",
-    "Retención préstamo clase media 2020 (Ley 21.252) (3166)",
-    "Rebaja zona extrema DL 889 (3167)"
+CODES_DESCUENTOS_LEGALES_DT = [
+    3141, 3143, 3144, 3151, 3146, 3147, 3155, 3156, 3157, 3158,
+    3161, 3162, 3163, 3164, 3165, 3166, 3167
 ]
 
-COLS_OTROS_DESCUENTOS_DT = [
-    "Cuota sindical 1(3171)", "Cuota sindical 2(3172)", "Cuota sindical 3(3173)",
-    "Cuota sindical 4(3174)", "Cuota sindical 5(3175)", "Cuota sindical 6(3176)",
-    "Cuota sindical 7(3177)", "Cuota sindical 8(3178)", "Cuota sindical 9(3179)",
-    "Cuota sindical 10(3180)", "Crédito social CCAF(3110)",
-    "Cuota vivienda o educación(3181)", "Crédito cooperativas de ahorro(3182)",
-    "Otros descuentos autorizados y solicitados por el trabajador(3183)",
-    "Cotización adicional trabajo pesado - trabajador(3154)",
-    "Donaciones culturales y de reconstrucción(3184)", "Otros descuentos(3185)",
-    "Pensiones de alimentos(3186)", "Descuento mujer casada(3187)",
-    "Descuentos por anticipos y préstamos(3188)"
+CODES_OTROS_DESCUENTOS_DT = [
+    3171, 3172, 3173, 3174, 3175, 3176, 3177, 3178, 3179, 3180,
+    3110, 3181, 3182, 3183, 3154, 3184, 3185, 3186, 3187, 3188
 ]
 
-COLS_APORTES_EMPLEADOR_DT = [
-    "AFC - Aporte empleador(4151)",
-    "Aporte empleador seguro accidentes del trabajo y Ley SANNA(4152)",
-    "Aporte adicional trabajo pesado - empleador(4154)",
-    "Aporte empleador seguro invalidez y sobrevivencia(4155)",
-    "APVC - Aporte Empleador(4157)"
+CODES_APORTES_EMPLEADOR_DT = [
+    4151, 4152, 4154, 4155, 4157
 ]
 
 
-def safe_sum_dt(df, cols):
-    """Suma columnas que existen en el df."""
-    cols_presentes = [c for c in cols if c in df.columns]
-    if not cols_presentes:
-        return pd.Series(0, index=df.index)
-    return df[cols_presentes].apply(pd.to_numeric, errors="coerce").fillna(0).sum(axis=1)
+
 
 
 def validar_cuadraturas_dt(df, nombre_archivo):
-    """Ejecuta las 6 validaciones de cuadratura para el archivo DT."""
+    """Ejecuta las 13 validaciones del instructivo DT."""
     errores = []
     tol = 1
 
     df = df.copy()
 
     # Excluir trabajadores con licencia mes completo (dias_trabajados = 0)
-    if COL_DIAS_TRAB in df.columns:
-        df = df[pd.to_numeric(df[COL_DIAS_TRAB], errors="coerce").fillna(0) != 0]
-    df["_hab_afectos"]    = safe_sum_dt(df, COLS_HABERES_AFECTOS_DT)
-    df["_hab_exentos"]    = safe_sum_dt(df, COLS_HABERES_EXENTOS_DT)
-    df["_desc_legales"]   = safe_sum_dt(df, COLS_DESCUENTOS_LEGALES_DT)
-    df["_otros_desc"]     = safe_sum_dt(df, COLS_OTROS_DESCUENTOS_DT)
-    df["_aportes_emp"]    = safe_sum_dt(df, COLS_APORTES_EMPLEADOR_DT)
+    col_dias_trab = find_col(df, COD_DIAS_TRAB)
+    if col_dias_trab and col_dias_trab in df.columns:
+        df = df[pd.to_numeric(df[col_dias_trab], errors="coerce").fillna(0) != 0]
 
-    def detalle_cols_dt(row, cols):
-        """Retorna string con col: monto para columnas con valor != 0."""
+    col_rut = find_col(df, COD_RUT) or ""
+
+    def sv(df, codigo):
+        """Suma una columna por código, retorna Serie."""
+        c = find_col(df, codigo)
+        if c and c in df.columns:
+            return pd.to_numeric(df[c], errors="coerce").fillna(0)
+        return pd.Series(0, index=df.index)
+
+    def detalle_cols_dt(row, codigos):
+        """Retorna string con nombre_col: monto para columnas con valor != 0."""
         partes = []
-        for c in cols:
-            if c in row.index:
+        for cod in codigos:
+            c = find_col(df, cod)
+            if c and c in row.index:
                 v = pd.to_numeric(row[c], errors="coerce")
                 if pd.notna(v) and v != 0:
                     partes.append(f"{c}: {round(v, 2)}")
         return " | ".join(partes) if partes else "(sin valores)"
 
+    def registrar(df, mask, calc, cod_ctrl, codigo_val, descripcion, codes_detalle, col_rut):
+        """Registra errores para las filas que no cumplen la validación."""
+        col_ctrl = find_col(df, cod_ctrl)
+        if not col_ctrl or col_ctrl not in df.columns:
+            return []
+        ctrl = pd.to_numeric(df[col_ctrl], errors="coerce").fillna(0)
+        filas = []
+        for _, row in df[mask].iterrows():
+            filas.append({
+                "Archivo":          nombre_archivo,
+                "RUT":              row.get(col_rut, "N/D"),
+                "Validación":       codigo_val,
+                "Descripción":      descripcion,
+                "Columnas sumadas": detalle_cols_dt(row, codes_detalle),
+                "Valor calculado":  round(calc[row.name], 2),
+                "Columna control":  col_ctrl,
+                "Valor control":    round(ctrl[row.name], 2),
+                "Diferencia":       round(calc[row.name] - ctrl[row.name], 2),
+            })
+        return filas
+
+    # ── Cálculos intermedios ──
+    # Totales de secciones
+    calc_5220 = safe_sum_by_codes(df, [2201, 2202, 2203, 2204])
+    calc_5230 = safe_sum_by_codes(df, [2301, 2302, 2303, 2304, 2305, 2311, 2306,
+                                        2307, 2308, 2309, 2347, 2310, 2312, 2313,
+                                        2314, 2315, 2316, 2331])
+    calc_5301 = safe_sum_by_codes(df, [3141, 3143, 3144, 3151, 3146, 3147, 3155,
+                                        3156, 3157, 3158, 3161, 3162, 3163, 3165,
+                                        3166, 3167, 3171, 3172, 3173, 3174, 3175,
+                                        3176, 3177, 3178, 3179, 3180, 3110, 3181,
+                                        3182, 3183, 3154, 3184, 3185, 3186, 3187, 3188])
+    calc_5341 = safe_sum_by_codes(df, [3141, 3143, 3144, 3146, 3151, 3154, 3155, 3156, 3157, 3158])
+    calc_5361 = safe_sum_by_codes(df, [3161, 3165])
+    calc_5362 = sv(df, 3162)
+    calc_5302 = calc_5301 - calc_5361 - calc_5362 - calc_5341
+    calc_5410 = safe_sum_by_codes(df, [4151, 4152, 4131, 4154, 4155, 4157])
+    calc_5502 = safe_sum_by_codes(df, [2313, 2314, 2315, 2316, 2331, 2417, 2418])
+    calc_5564 = safe_sum_by_codes(df, [2417, 2418])
+    calc_5565 = safe_sum_by_codes(df, [2313, 2314, 2315, 2316, 2331])
+    calc_5201 = sv(df, 5210) + calc_5220 + calc_5230 + sv(df, 5240)
+    calc_5501 = calc_5201 - calc_5301
+
+    # ── Validaciones ──
     validaciones = [
-        ("V1", "_hab_afectos",  "Total haberes imponibles y tributables(5210)",
-         "Haberes afectos ≠ Total haberes imponibles y tributables(5210)",
-         COLS_HABERES_AFECTOS_DT),
-        ("V2", "_hab_exentos",  "Total haberes no imponibles y no tributables(5230)",
-         "Haberes exentos ≠ Total haberes no imponibles y no tributables(5230)",
-         COLS_HABERES_EXENTOS_DT),
-        ("V3", "_desc_legales", "Total descuentos por cotizaciones del trabajador(5341)",
-         "Descuentos legales ≠ Total descuentos por cotizaciones del trabajador(5341)",
-         COLS_DESCUENTOS_LEGALES_DT),
-        ("V4", "_otros_desc",   "Total otros descuentos(5302)",
-         "Otros descuentos ≠ Total otros descuentos(5302)",
-         COLS_OTROS_DESCUENTOS_DT),
-        ("V5", "_aportes_emp",  "Total aportes empleador(5410)",
-         "Aportes empleador ≠ Total aportes empleador(5410)",
-         COLS_APORTES_EMPLEADOR_DT),
+        # (codigo_val, calc, cod_ctrl, descripcion, codes_detalle)
+        ("V1",  calc_5201, 5201, "5210+5220+5230+5240 ≠ Total haberes (5201)",
+         [5210, 5220, 5230, 5240]),
+        ("V2",  calc_5220, 5220, "2201+2202+2203+2204 ≠ Total haberes imponibles no tributables (5220)",
+         [2201, 2202, 2203, 2204]),
+        ("V3",  calc_5230, 5230, "Suma sección 23xx ≠ Total haberes no imponibles y no tributables (5230)",
+         [2301, 2302, 2303, 2304, 2305, 2311, 2306, 2307, 2308, 2309, 2347, 2310, 2312, 2313, 2314, 2315, 2316, 2331]),
+        ("V4",  calc_5301, 5301, "Suma descuentos ≠ Total descuentos (5301)",
+         [3141, 3143, 3144, 3151, 3146, 3147, 3155, 3156, 3157, 3158, 3161, 3162, 3163,
+          3165, 3166, 3167, 3171, 3172, 3173, 3174, 3175, 3176, 3177, 3178, 3179, 3180,
+          3110, 3181, 3182, 3183, 3154, 3184, 3185, 3186, 3187, 3188]),
+        ("V5",  calc_5361, 5361, "3161+3165 ≠ Total descuentos impuestos remuneraciones (5361)",
+         [3161, 3165]),
+        ("V6",  calc_5362, 5362, "3162 ≠ Total descuentos impuestos indemnizaciones (5362)",
+         [3162]),
+        ("V7",  calc_5341, 5341, "Suma cotizaciones ≠ Total descuentos cotizaciones trabajador (5341)",
+         [3141, 3143, 3144, 3146, 3151, 3154, 3155, 3156, 3157, 3158]),
+        ("V8",  calc_5302, 5302, "5301-5361-5362-5341 ≠ Total otros descuentos (5302)",
+         []),
+        ("V9",  calc_5410, 5410, "Suma aportes empleador ≠ Total aportes empleador (5410)",
+         [4151, 4152, 4131, 4154, 4155, 4157]),
+        ("V10", calc_5501, 5501, "5201-5301 ≠ Total líquido (5501)",
+         []),
+        ("V11", calc_5502, 5502, "Suma indemnizaciones ≠ Total indemnizaciones (5502)",
+         [2313, 2314, 2315, 2316, 2331, 2417, 2418]),
+        ("V12", calc_5564, 5564, "2417+2418 ≠ Total indemnizaciones tributables (5564)",
+         [2417, 2418]),
+        ("V13", calc_5565, 5565, "Suma ≠ Total indemnizaciones no tributables (5565)",
+         [2313, 2314, 2315, 2316, 2331]),
     ]
 
-    for codigo, col_calc, col_ctrl, mensaje, cols_grupo in validaciones:
-        if col_ctrl not in df.columns:
+    for codigo_val, calc, cod_ctrl, descripcion, codes_detalle in validaciones:
+        col_ctrl = find_col(df, cod_ctrl)
+        if not col_ctrl or col_ctrl not in df.columns:
             continue
         ctrl = pd.to_numeric(df[col_ctrl], errors="coerce").fillna(0)
-        calc = df[col_calc].fillna(0)
         mask = (calc - ctrl).abs() > tol
         for _, row in df[mask].iterrows():
             errores.append({
                 "Archivo":          nombre_archivo,
-                "RUT":              row.get(COL_RUT, "N/D"),
-                "Validación":       codigo,
-                "Descripción":      mensaje,
-                "Columnas sumadas": detalle_cols_dt(row, cols_grupo),
+                "RUT":              row.get(col_rut, "N/D"),
+                "Validación":       codigo_val,
+                "Descripción":      descripcion,
+                "Columnas sumadas": detalle_cols_dt(row, codes_detalle) if codes_detalle else "Ver descripción",
                 "Valor calculado":  round(calc[row.name], 2),
                 "Columna control":  col_ctrl,
                 "Valor control":    round(ctrl[row.name], 2),
-                "Diferencia":       round(calc[row.name] - ctrl[row.name], 2)
-            })
-
-    # V6: liquidez
-    if "Total líquido(5501)" in df.columns:
-        liq_calc = (df["_hab_afectos"] + df["_hab_exentos"]) - \
-                   (df["_desc_legales"] + df["_otros_desc"])
-        liq_ctrl = pd.to_numeric(df["Total líquido(5501)"], errors="coerce").fillna(0)
-        mask = (liq_calc - liq_ctrl).abs() > tol
-        cols_v6 = COLS_HABERES_AFECTOS_DT + COLS_HABERES_EXENTOS_DT + COLS_DESCUENTOS_LEGALES_DT + COLS_OTROS_DESCUENTOS_DT
-        for _, row in df[mask].iterrows():
-            errores.append({
-                "Archivo":          nombre_archivo,
-                "RUT":              row.get(COL_RUT, "N/D"),
-                "Validación":       "V6",
-                "Descripción":      "(hab_afectos + hab_exentos) - (desc_legales + otros_desc) ≠ Total líquido(5501)",
-                "Columnas sumadas": detalle_cols_dt(row, cols_v6),
-                "Valor calculado":  round(liq_calc[row.name], 2),
-                "Columna control":  "Total líquido(5501)",
-                "Valor control":    round(liq_ctrl[row.name], 2),
-                "Diferencia":       round(liq_calc[row.name] - liq_ctrl[row.name], 2)
+                "Diferencia":       round(calc[row.name] - ctrl[row.name], 2),
             })
 
     return errores
@@ -920,6 +1200,11 @@ def render_modulo_dt(refs_compartidas):
             try:
                 # Leer CSV DT
                 df_dt = leer_csv_dt(archivo_dt)
+
+                # Validar columnas contra LRE_COLUMNAS
+                diferencias_cols, desconocidas_cols = validar_columnas_lre(df_dt)
+                if diferencias_cols or desconocidas_cols:
+                    mostrar_aviso_columnas(diferencias_cols, desconocidas_cols)
 
                 # Leer empleados
                 df_empleados = cargar_empleados(archivo_empleados)
