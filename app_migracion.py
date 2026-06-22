@@ -486,20 +486,35 @@ def validar_cuadraturas(df, nombre_archivo):
     if col_dias in df.columns:
         df = df[df[col_dias].fillna(0) != 0].copy()
 
+    def detalle_cols(row, cols):
+        """Retorna string con col: monto para columnas con valor != 0."""
+        partes = []
+        for c in cols:
+            if c in row.index:
+                v = row[c]
+                if pd.notna(v) and v != 0:
+                    partes.append(f"{c}: {round(v, 2)}")
+        return " | ".join(partes) if partes else "(sin valores)"
+
     validaciones = [
         ("V1", "_total_haberes_afectos", "Total haberes imponibles y tributables(5210)",
-         "total_haberes_afectos ≠ Total haberes imponibles y tributables(5210)"),
+         "total_haberes_afectos ≠ Total haberes imponibles y tributables(5210)",
+         COLS_HABERES_AFECTOS),
         ("V2", "_total_haberes_exentos", "Total haberes no imponibles y no tributables(5230)",
-         "total_haberes_exentos ≠ Total haberes no imponibles y no tributables(5230)"),
+         "total_haberes_exentos ≠ Total haberes no imponibles y no tributables(5230)",
+         COLS_HABERES_EXENTOS),
         ("V3", "_total_descuentos_legales", "Total descuentos por cotizaciones del trabajador(5341)",
-         "total_descuentos_legales ≠ Total descuentos por cotizaciones del trabajador(5341)"),
+         "total_descuentos_legales ≠ Total descuentos por cotizaciones del trabajador(5341)",
+         COLS_DESCUENTOS_LEGALES),
         ("V4", "_total_otros_descuentos", "Total otros descuentos(5302)",
-         "total_otros_descuentos ≠ Total otros descuentos(5302)"),
+         "total_otros_descuentos ≠ Total otros descuentos(5302)",
+         COLS_OTROS_DESCUENTOS),
         ("V5", "_total_aportes_empleador", "Total aportes empleador(5410)",
-         "total_aportes_empleador ≠ Total aportes empleador(5410)"),
+         "total_aportes_empleador ≠ Total aportes empleador(5410)",
+         COLS_APORTES_EMPLEADOR),
     ]
 
-    for codigo, col_calc, col_ctrl, mensaje in validaciones:
+    for codigo, col_calc, col_ctrl, mensaje, cols_grupo in validaciones:
         if col_ctrl not in df.columns:
             continue
         ctrl = df[col_ctrl].fillna(0)
@@ -512,7 +527,9 @@ def validar_cuadraturas(df, nombre_archivo):
                 "RUT": row.get("Rut trabajador (1101)", "N/D"),
                 "Validación": codigo,
                 "Descripción": mensaje,
+                "Columnas sumadas": detalle_cols(row, cols_grupo),
                 "Valor calculado": round(calc[row.name], 2),
+                "Columna control": col_ctrl,
                 "Valor control": round(ctrl[row.name], 2),
                 "Diferencia": round(calc[row.name] - ctrl[row.name], 2)
             })
@@ -524,13 +541,16 @@ def validar_cuadraturas(df, nombre_archivo):
         liq_ctrl = df["Total líquido(5501)"].fillna(0)
         mask = (liq_calc - liq_ctrl).abs() > tol
         filas_error = df[mask]
+        cols_v6 = COLS_HABERES_AFECTOS + COLS_HABERES_EXENTOS + COLS_DESCUENTOS_LEGALES + COLS_OTROS_DESCUENTOS
         for _, row in filas_error.iterrows():
             errores.append({
                 "Archivo": nombre_archivo,
                 "RUT": row.get("Rut trabajador (1101)", "N/D"),
                 "Validación": "V6",
                 "Descripción": "(haberes_afectos + haberes_exentos) - (desc_legales + otros_desc) ≠ Total líquido(5501)",
+                "Columnas sumadas": detalle_cols(row, cols_v6),
                 "Valor calculado": round(liq_calc[row.name], 2),
+                "Columna control": "Total líquido(5501)",
                 "Valor control": round(liq_ctrl[row.name], 2),
                 "Diferencia": round(liq_calc[row.name] - liq_ctrl[row.name], 2)
             })
