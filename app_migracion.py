@@ -778,7 +778,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ── NAVEGACIÓN PRINCIPAL ──
-nav_migracion, nav_dt = st.tabs(["📂 Migración DDJJ Previred", "🏛️ Migración DT"])
+nav_migracion, nav_dt = st.tabs(["📂 Migración desde archivo base LRE de Rex", "🏛️ Migración DT"])
 
 # Cargar referencias compartidas (disponibles para todos los tabs)
 refs, errores_refs = cargar_referencias()
@@ -786,7 +786,7 @@ if errores_refs:
     st.markdown(f'<div class="alert-warning">⚠️ Archivos de referencia no encontrados en <b>/data</b>: {", ".join(errores_refs)}</div>', unsafe_allow_html=True)
 
 with nav_migracion:
-    st.markdown('<div class="section-title">📂 Migración DDJJ Previred</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">📂 Migración desde archivo base LRE de Rex</div>', unsafe_allow_html=True)
     st.markdown('<div class="section-sub">Sube uno o más archivos CSV del mismo RUT empresa para generar el archivo de salida en Excel.</div>', unsafe_allow_html=True)
     col1, col2, col3 = st.columns(3)
     with col1:
