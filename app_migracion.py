@@ -973,7 +973,7 @@ with nav_migracion:
                     archivo_empleados.seek(0)
                     refs["listado_empleados"] = pd.read_excel(archivo_empleados)
                     archivo_params_lre.seek(0)
-                    refs["parametros"] = pd.read_excel(archivo_params_lre, sheet_name="Hoja2", dtype={"mes_Proc": str})
+                    refs["parametros"] = pd.read_excel(archivo_params_lre, sheet_name="Hoja1", dtype={"mes_Proc": str})
 
                     # Extraer fecha de proceso
                     if "Fecha de proceso" in df.columns:
