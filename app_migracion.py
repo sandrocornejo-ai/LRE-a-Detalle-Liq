@@ -671,14 +671,25 @@ def generar_filas_salida(df, fecha_proceso, refs):
     # { id_concepto: tipo }
     tipo_dict = {conc: tipo for col, (conc, tipo) in EQUIV_CONCEPTOS_REX.items()}
 
-    # Parámetros mensuales
-    tope_afp = 0
-    tope_ces = 0
-    if not params.empty:
-        if "topeImp_pesos_afp" in params.columns:
-            tope_afp = safe_num(params["topeImp_pesos_afp"].iloc[0])
-        if "topeCes_pesos" in params.columns:
-            tope_ces = safe_num(params["topeCes_pesos"].iloc[0])
+    # Parámetros mensuales — filtrar por mes de proceso
+    tope_afp  = 0
+    tope_ces  = 0
+    tope_salud = 0
+    if not params.empty and "mes_Proc" in params.columns:
+        params["mes_Proc"] = params["mes_Proc"].astype(str).str.strip()
+        fila_params = params[params["mes_Proc"] == fecha_proceso]
+        if not fila_params.empty:
+            tope_afp   = safe_num(fila_params["topeImp_pesos_afp"].iloc[0]) if "topeImp_pesos_afp" in params.columns else 0
+            tope_ces   = safe_num(fila_params["topeCes_pesos"].iloc[0])     if "topeCes_pesos"      in params.columns else 0
+            tope_salud = safe_num(fila_params["topeSalud_pesos"].iloc[0])   if "topeSalud_pesos"    in params.columns else 0
+
+    # Códigos base imponible (misma base para AFP, CES e impuesto)
+    CODIGOS_BASE_IMPONIBLE = [2101,2102,2103,2104,2105,2106,2107,2108,2110,2111,2112,2113,2115,2123,2124,2201,2202]
+
+    # Conceptos con afecto AFP
+    CONCEPTOS_AFECTO_AFP = {"afp", "isapre", "mutual", "sis", "trabajoPesaEmpl"}
+    # Conceptos con afecto CES
+    CONCEPTOS_AFECTO_CES = {"cesEmpleado", "cesAporteSol", "cesAporteCi"}
 
     # Columnas de conceptos presentes en el archivo
     cols_concepto = [c for c in df.columns if c in equiv_dict]
@@ -709,11 +720,26 @@ def generar_filas_salida(df, fecha_proceso, refs):
             if not emp2.empty:
                 empresa_salida = str(emp2.iloc[0].iloc[0]).strip()
 
-        # Total imponible (suma haberes afectos)
-        cols_afectos = concepto_a_cols.get("sueldoBase", []) + \
-                       [c for conc, cols in concepto_a_cols.items()
-                        if conc in GRUPOS_AFP_MUTUAL_AFECTO for c in cols]
-        total_imponible = sum(safe_num(row.get(c, 0)) for c in set(cols_afectos) if c in df.columns)
+        # ── Base imponible (suma haberes afectos) ──
+        base_imponible = sum(
+            safe_num(row.get(COD_COL_REX.get(cod, ""), 0))
+            for cod in CODIGOS_BASE_IMPONIBLE
+            if COD_COL_REX.get(cod, "") in df.columns
+        )
+
+        # ── Descuentos para cálculo afecto impuesto ──
+        col_3143 = COD_COL_REX.get(3143, "")
+        col_3144 = COD_COL_REX.get(3144, "")
+        salud_trabajador = safe_num(row.get(col_3143, 0)) + safe_num(row.get(col_3144, 0))
+        salud_tope       = min(salud_trabajador, tope_salud) if tope_salud > 0 else salud_trabajador
+
+        desc_impuesto = (
+            safe_num(row.get(COD_COL_REX.get(3141, ""), 0)) +
+            safe_num(row.get(COD_COL_REX.get(3151, ""), 0)) +
+            safe_num(row.get(COD_COL_REX.get(3154, ""), 0)) +
+            safe_num(row.get(COD_COL_REX.get(3156, ""), 0)) +
+            salud_tope
+        )
 
         monto_init = round((sueldo / dias_trabajados) * 30, 0) if dias_trabajados > 0 else 0
 
@@ -756,12 +782,15 @@ def generar_filas_salida(df, fecha_proceso, refs):
                     if not c.empty:
                         id_institucion = c.iloc[0]["id_ccaf"]
 
-            # Afecto
-            afecto = ""
-            if id_concepto in GRUPOS_AFP_MUTUAL_AFECTO:
-                afecto = min(total_imponible, tope_afp) if tope_afp > 0 else total_imponible
-            elif id_concepto in GRUPOS_CES_AFECTO:
-                afecto = min(total_imponible, tope_ces) if tope_ces > 0 else total_imponible
+            # ── Afecto ──
+            if id_concepto in CONCEPTOS_AFECTO_AFP:
+                afecto = min(base_imponible, tope_afp) if tope_afp > 0 else base_imponible
+            elif id_concepto in CONCEPTOS_AFECTO_CES:
+                afecto = min(base_imponible, tope_ces) if tope_ces > 0 else base_imponible
+            elif id_concepto == "impuesto":
+                afecto = round(base_imponible - desc_impuesto, 2)
+            else:
+                afecto = 0
 
             # Cotización de jubilación
             cot_jubilacion = 0
