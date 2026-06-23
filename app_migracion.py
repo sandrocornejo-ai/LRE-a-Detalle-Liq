@@ -535,6 +535,121 @@ def safe_num(v, default=0):
     except Exception:
         return default
 
+COD_COL_REX = {
+    1116: "Nro días de licencia médica",
+    2101: "Sueldo(2101)", 2102: "Sobresueldo(2102)", 2103: "Comisiones(2103)",
+    2104: "Semana corrida(2104)", 2105: "Participación(2105)", 2106: "Gratificación(2106)",
+    2107: "Recargo 30% día domingo (Art. 38) (2107)",
+    2108: "Remuneración variable pagada en vacaciones (Art 71) (cód 2108)",
+    2110: "Aguinaldo(2110)", 2111: "Bonos u otras remun. fijas mensuales(2111)",
+    2112: "Tratos (mensual) (cód 2112)",
+    2113: "Bonos u otras remuneraciones variables mensuales o superiores a un mes (cód 2113)",
+    2115: "Beneficios en especie constitutivos de remuneración (cód 2115)",
+    2123: "Otras remuneraciones superiores a un mes (cód 2123)",
+    2124: "Pago por horas de trabajo sindical (cód 2124)",
+    2201: "Subsidio por incapacidad laboral por licencia médica(2201)",
+    2202: "Beca de estudio (Art. 17 N°18 LIR) (cód 2202)",
+    2204: "Otros ingresos no constitutivos de renta (Art 17 N°29 LIR) (cód 2204)",
+    2301: "Colación(2301)", 2302: "Movilización(2302)",
+    2303: "Viáticos totales mensual (Art 41) (cód 2303)",
+    2304: "Asignación de pérdida de caja(2304)",
+    2305: "Asignación de desgaste herramienta(2305)",
+    2306: "Gastos por causa del trabajo (Art 41 CdT) y gastos de representación (Art. 42 Nº1 LIR) (cód 2306)",
+    2308: "Sala cuna (Art 203) (cód 2308)",
+    2309: "Asignación trabajo a distancia o teletrabajo(2309)",
+    2310: "Alojamiento por razones de trabajo (2310)",
+    2311: "Asignación familiar legal(2311)",
+    2312: "Asignación de traslación(2312)",
+    2313: "Indemnización por feriado legal(2313)",
+    2314: "Indemnización años de servicio(2314)",
+    2315: "Indemnización sustitutiva del aviso previo(2315)",
+    2316: "Indemnización fuero maternal (Art 163 bis) (cód 2316)",
+    2331: "Indemnización a todo evento (Art.164) (cód 2331)",
+    2417: "Indemnizaciones voluntarias tributables (cód 2417)",
+    2418: "Indemnizaciones contractuales tributables (cód 2418)",
+    3141: "Cotización obligatoria previsional (AFP o IPS)(3141)",
+    3143: "Cotización obligatoria salud 7%(3143)",
+    3144: "Cotización voluntaria para salud(3144)",
+    3151: "Cotización AFC - trabajador(3151)",
+    3154: "Cotización adicional trabajo pesado- trabajador (cód 3154)",
+    3155: "Cotización APVi Mod A(3155)", 3156: "Cotización APVi Mod B hasta UF50(3156)",
+    3161: "Impuesto retenido por remuneraciones(3161)",
+    3162: "Impuesto retenido por indemnizaciones (cód 3162)",
+    3163: "Mayor retención de impuesto solicitada por el trabajador (cód 3163)",
+    3164: "Impuesto retenido por reliquidación de remuneraciones devengadas en otros períodos mensuales (cód 3164)",
+    3166: "Retención préstamo clase media 2020 (Ley 21.252) (3166)",
+    3171: "Cuota sindical 1(3171)", 3110: "Crédito social CCAF(3110)",
+    3181: "Cuota vivienda o educación Art. 58 (cód 3181)",
+    3182: "Crédito cooperativas de ahorro (Art 54 Ley Coop.) (cód 3182)",
+    3183: "Otros descuentos autorizados y solicitados por el trabajador (cód 3183)",
+    3185: "Otros descuentos(3185)", 3186: "Pensiones de alimentos(3186)",
+    3188: "Descuentos por anticipos y préstamos(3188)",
+    3167: "Rebaja zona extrema DL 889 (3167)",
+    4151: "AFC - Aporte empleador solidario",
+    4152: "Aporte empleador seguro accidentes del trabajo y Ley SANNA(4152)",
+    4154: "Aporte adicional trabajo pesado- empleador (cód 4154)",
+    4155: "Aporte empleador seguro invalidez y sobrevivencia(4155)",
+    5501: "Total líquido(5501)",
+}
+
+CODIGOS_HABERES_REX = [
+    2101, 2102, 2103, 2104, 2105, 2106, 2107, 2108, 2110, 2111,
+    2112, 2113, 2115, 2123, 2124, 2201, 2202, 2204, 2301, 2302,
+    2303, 2304, 2305, 2306, 2308, 2311, 2309, 2310, 2312, 2313,
+    2314, 2315, 2316, 2331, 2417, 2418
+]
+
+CODIGOS_DESCUENTOS_REX = [
+    3141, 3143, 3144, 3151, 3154, 3155, 3156, 3161, 3162, 3163,
+    3164, 3166, 3171, 3110, 3181, 3182, 3183, 3185, 3186, 3188
+]
+
+def get_col_rex(df, codigo):
+    nombre = COD_COL_REX.get(codigo)
+    if nombre and nombre in df.columns:
+        return nombre
+    return None
+
+def safe_sum_rex(df, codigos):
+    total = pd.Series(0.0, index=df.index)
+    for cod in codigos:
+        col = get_col_rex(df, cod)
+        if col:
+            total += pd.to_numeric(df[col], errors="coerce").fillna(0)
+    return total
+
+def validar_liquidez_rex(df):
+    tol = 1
+    col_dias_trab = "Nro días trabajados"
+    if col_dias_trab in df.columns:
+        df_val = df[pd.to_numeric(df[col_dias_trab], errors="coerce").fillna(0) != 0].copy()
+    else:
+        df_val = df.copy()
+
+    suma_haberes    = safe_sum_rex(df_val, CODIGOS_HABERES_REX)
+    suma_descuentos = safe_sum_rex(df_val, CODIGOS_DESCUENTOS_REX)
+    liquido_calc    = suma_haberes - suma_descuentos
+
+    col_5501 = get_col_rex(df_val, 5501)
+    if not col_5501:
+        return pd.DataFrame(), False
+
+    liquido_ctrl = pd.to_numeric(df_val[col_5501], errors="coerce").fillna(0)
+    mask = (liquido_calc - liquido_ctrl).abs() > tol
+
+    if not mask.any():
+        return pd.DataFrame(), False
+
+    df_errores = df_val[mask].copy()
+    df_errores["_Suma haberes calculada"]    = suma_haberes[mask].round(2)
+    df_errores["_Suma descuentos calculada"] = suma_descuentos[mask].round(2)
+    df_errores["_Liquido calculado"]         = liquido_calc[mask].round(2)
+    df_errores["_Liquido archivo (5501)"]    = liquido_ctrl[mask].round(2)
+    df_errores["_Diferencia"]                = (liquido_calc - liquido_ctrl)[mask].round(2)
+
+    return df_errores, True
+
+
 def generar_filas_salida(df, fecha_proceso, refs):
     """Genera las filas del archivo de salida via pivot de conceptos."""
     filas = []
@@ -843,26 +958,49 @@ with nav_migracion:
                     archivo_empleados.seek(0)
                     refs["listado_empleados"] = pd.read_excel(archivo_empleados)
 
-                    # Extraer fecha de proceso desde la columna "Fecha de proceso"
+                    # Extraer fecha de proceso
                     if "Fecha de proceso" in df.columns:
                         fecha_proceso = str(df["Fecha de proceso"].iloc[0])[:7]
                     else:
                         fecha_proceso = datetime.now().strftime("%Y-%m")
 
-                    df_final = generar_filas_salida(df, fecha_proceso, refs)
+                    # ── Validación: 5501 = haberes - descuentos ──
+                    df_errores_val, hay_errores = validar_liquidez_rex(df)
 
-                    if df_final.empty:
-                        st.markdown('<div class="alert-error">❌ El archivo de salida quedó vacío. Columnas detectadas en el archivo de entrada:</div>', unsafe_allow_html=True)
-                        st.write(list(df.columns))
-                    else:
-                        excel_bytes = generar_excel(df_final)
-                        st.markdown(f'<div class="alert-success">✅ Archivo generado: <b>{len(df_final)} filas</b>.</div>', unsafe_allow_html=True)
+                    if hay_errores:
+                        st.markdown(f"""
+                        <div class="alert-error">
+                            ❌ <b>Validación fallida.</b> Se encontraron <b>{len(df_errores_val)} trabajador(es)</b>
+                            donde el Total líquido (5501) no coincide con la diferencia entre haberes y descuentos.<br>
+                            No se generó el archivo de salida. Descarga el log para revisar las diferencias.
+                        </div>""", unsafe_allow_html=True)
+
+                        log_buf = io.BytesIO()
+                        df_errores_val.to_excel(log_buf, index=False, sheet_name="Errores validación")
+                        log_buf.seek(0)
                         st.download_button(
-                            label="⬇️ Descargar archivo de salida (.xlsx)",
-                            data=excel_bytes,
-                            file_name=f"migracion_lre_{fecha_proceso}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                            label="⬇️ Descargar log de errores (.xlsx)",
+                            data=log_buf,
+                            file_name=f"log_validacion_{fecha_proceso}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                         )
+                    else:
+                        st.markdown('<div class="alert-success">✅ <b>Validación exitosa.</b> Todos los registros cuadran. Generando archivo de salida...</div>', unsafe_allow_html=True)
+
+                        df_final = generar_filas_salida(df, fecha_proceso, refs)
+
+                        if df_final.empty:
+                            st.markdown('<div class="alert-error">❌ El archivo de salida quedó vacío. Columnas detectadas en el archivo de entrada:</div>', unsafe_allow_html=True)
+                            st.write(list(df.columns))
+                        else:
+                            excel_bytes = generar_excel(df_final)
+                            st.markdown(f'<div class="alert-success">✅ Archivo generado: <b>{len(df_final)} filas</b>.</div>', unsafe_allow_html=True)
+                            st.download_button(
+                                label="⬇️ Descargar archivo de salida (.xlsx)",
+                                data=excel_bytes,
+                                file_name=f"migracion_lre_{fecha_proceso}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                            )
                 except Exception as e:
                     import traceback
                     st.markdown(f'<div class="alert-error">❌ Error: <b>{e}</b></div>', unsafe_allow_html=True)
