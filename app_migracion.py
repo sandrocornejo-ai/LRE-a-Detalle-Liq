@@ -192,7 +192,7 @@ EQUIV_CONCEPTOS_REX = {
     "Otros ingresos no constitutivos de renta (Art 17 N°29 LIR) (cód 2204)":                                    ("otingrMi",             "Haber exento"),
     "Colación(2301)":                                                                                           ("colacion",             "Haber exento"),
     "Movilización(2302)":                                                                                       ("movilizacion",         "Haber exento"),
-    "Viáticos totales mensual (Art 41) (cód 2303)":                                                             ("gastoMi",              "Haber exento"),
+    "Viáticos totales mensual (Art 41) (cód 2303)":                                                             ("viaticoMi",            "Haber exento"),
     "Asignación de pérdida de caja(2304)":                                                                      ("asigPerdCajaMi",       "Haber exento"),
     "Asignación de desgaste herramienta(2305)":                                                                 ("AsigDesgHerrMi",       "Haber exento"),
     "Gastos por causa del trabajo (Art 41 CdT) y gastos de representación (Art. 42 Nº1 LIR) (cód 2306)":       ("gastoMi",              "Haber exento"),
