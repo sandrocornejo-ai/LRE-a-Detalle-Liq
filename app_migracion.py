@@ -811,10 +811,7 @@ def generar_filas_salida(df, fecha_proceso, refs):
             elif id_concepto in GRUPOS_ISAPRE:
                 id_institucion = isapre_empleado
             elif id_concepto in GRUPOS_MUTUAL:
-                if not mutuales.empty and "nombre_mutual" in mutuales.columns and "id_mutual" in mutuales.columns:
-                    m = mutuales[mutuales["nombre_mutual"].astype(str).str.strip() == mutual_empleado]
-                    if not m.empty:
-                        id_institucion = m.iloc[0]["id_mutual"]
+                id_institucion = mutual_empleado
             elif id_concepto in GRUPOS_CCAF:
                 if not cajas.empty and "nombre_ccaf" in cajas.columns and "id_ccaf" in cajas.columns:
                     c = cajas[cajas["nombre_ccaf"].astype(str).str.strip() == ccaf_empleado]
@@ -852,10 +849,7 @@ def generar_filas_salida(df, fecha_proceso, refs):
             elif id_concepto == "isapre":
                 cot_jubilacion = monto
             elif id_concepto == "mutual":
-                if not empresas.empty and "Mutual" in empresas.columns and "Cotización Mutual" in empresas.columns:
-                    e = empresas[empresas["Mutual"].astype(str).str.strip() == mutual_empleado]
-                    if not e.empty:
-                        cot_jubilacion = safe_num(e.iloc[0]["Cotización Mutual"])
+                cot_jubilacion = safe_num(row.get("% mutual", 0))
             elif id_concepto == "licenciaDias":
                 cot_jubilacion = dias_licencia
 
