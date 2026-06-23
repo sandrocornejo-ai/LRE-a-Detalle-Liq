@@ -686,6 +686,19 @@ def generar_filas_salida(df, fecha_proceso, refs):
     # Códigos base imponible (misma base para AFP, CES e impuesto)
     CODIGOS_BASE_IMPONIBLE = [2101,2102,2103,2104,2105,2106,2107,2108,2110,2111,2112,2113,2115,2123,2124,2201,2202]
 
+    # Códigos para afecto totalesEmpl (base imponible + haberes exentos)
+    CODIGOS_TOTALES_EMPL = [
+        2101,2102,2103,2104,2105,2106,2107,2108,2110,2111,2112,2113,2115,2123,2124,
+        2201,2202,2204,2301,2302,2303,2304,2305,2306,2308,2311,2309,2310,2312,
+        2313,2314,2315,2316,2331,2417,2418
+    ]
+
+    # Códigos rentas no gravadas (solo para impuesto)
+    CODIGOS_RENTAS_NO_GRAVADAS = [
+        2204,2301,2302,2303,2304,2305,2306,2308,2311,2309,2310,2312,
+        2313,2314,2315,2316,2331,2417,2418
+    ]
+
     # Conceptos con afecto AFP
     CONCEPTOS_AFECTO_AFP = {"afp", "isapre", "mutual", "sis", "trabajoPesaEmpl"}
     # Conceptos con afecto CES
@@ -727,6 +740,20 @@ def generar_filas_salida(df, fecha_proceso, refs):
             if COD_COL_REX.get(cod, "") in df.columns
         )
 
+        # ── Afecto totalesEmpl (haberes afectos + exentos, sin tope) ──
+        afecto_totales_empl = sum(
+            safe_num(row.get(COD_COL_REX.get(cod, ""), 0))
+            for cod in CODIGOS_TOTALES_EMPL
+            if COD_COL_REX.get(cod, "") in df.columns
+        )
+
+        # ── Rentas no gravadas (solo para impuesto) ──
+        rentas_no_gravadas = sum(
+            safe_num(row.get(COD_COL_REX.get(cod, ""), 0))
+            for cod in CODIGOS_RENTAS_NO_GRAVADAS
+            if COD_COL_REX.get(cod, "") in df.columns
+        )
+
         # ── Descuentos para cálculo afecto impuesto ──
         col_3143 = COD_COL_REX.get(3143, "")
         col_3144 = COD_COL_REX.get(3144, "")
@@ -740,6 +767,12 @@ def generar_filas_salida(df, fecha_proceso, refs):
             safe_num(row.get(COD_COL_REX.get(3156, ""), 0)) +
             salud_tope
         )
+
+        # ── Rebaja por zona extrema (código 3167) ──
+        rebaja_zona = safe_num(row.get(COD_COL_REX.get(3167, ""), 0))
+
+        # ── Total rebajas por LLSS = min(3143+3144, tope_salud) ──
+        rebajas_llss = round(salud_tope, 2)
 
         monto_init = round((sueldo / dias_trabajados) * 30, 0) if dias_trabajados > 0 else 0
 
@@ -789,6 +822,8 @@ def generar_filas_salida(df, fecha_proceso, refs):
                 afecto = min(base_imponible, tope_ces) if tope_ces > 0 else base_imponible
             elif id_concepto == "impuesto":
                 afecto = round(base_imponible - desc_impuesto, 2)
+            elif id_concepto == "totalesEmpl":
+                afecto = round(afecto_totales_empl, 2)
             else:
                 afecto = 0
 
@@ -821,45 +856,49 @@ def generar_filas_salida(df, fecha_proceso, refs):
             conceptos_ya_generados.add(id_concepto)
 
             filas.append({
-                "Fecha de proceso":        fecha_proceso,
-                "Id empleado":             rut,
-                "Número de contrato":      int(numero_contrato),
-                "Id del concepto":         id_concepto,
-                "Monto del concepto":      monto,
-                "Afecto":                  afecto,
-                "Id de institución":       id_institucion,
-                "Cotización de jubilación": cot_jubilacion,
-                "Días de licencias":       dias_licencia,
-                "Días trabajados":         dias_vacaciones,
-                "Fecha de aplicación":     "x",
-                "Empresa":                 empresa_salida,
-                "Total de rebajas por L":  rebaja_zona,
-                "Jornada":                 jornada,
-                "Fase":                    1,
-                "Días de vacaciones":      dias_vacaciones,
-                "Monto Init":              monto_init,
+                "Fecha de proceso":          fecha_proceso,
+                "Id empleado":               rut,
+                "Número de contrato":        int(numero_contrato),
+                "Id del concepto":           id_concepto,
+                "Monto del concepto":        monto,
+                "Afecto":                    afecto,
+                "Id de institución":         id_institucion,
+                "Cotización de jubilación":  cot_jubilacion,
+                "Días de licencias":         dias_licencia,
+                "Días trabajados":           dias_vacaciones,
+                "Fecha de aplicación":       "x",
+                "Empresa":                   empresa_salida,
+                "Total de rebajas por LLSS": rebajas_llss if id_concepto == "impuesto" else 0,
+                "Rentas no gravadas":        rentas_no_gravadas if id_concepto == "impuesto" else 0,
+                "Rebaja por zona extrema":   rebaja_zona if id_concepto == "impuesto" else 0,
+                "Jornada":                   jornada,
+                "Días de vacaciones":        dias_vacaciones,
+                "Monto Init":                monto_init,
+                "Fase":                      1,
             })
 
         # Fila adicional licenciaDias si aplica
         if dias_licencia > 0 and "licenciaDias" not in conceptos_ya_generados:
             filas.append({
-                "Fecha de proceso":        fecha_proceso,
-                "Id empleado":             rut,
-                "Número de contrato":      int(numero_contrato),
-                "Id del concepto":         "licenciaDias",
-                "Monto del concepto":      dias_licencia,
-                "Afecto":                  "",
-                "Id de institución":       "",
-                "Cotización de jubilación": dias_licencia,
-                "Días de licencias":       dias_licencia,
-                "Días trabajados":         dias_vacaciones,
-                "Fecha de aplicación":     "x",
-                "Empresa":                 empresa_salida,
-                "Total de rebajas por L":  rebaja_zona,
-                "Jornada":                 jornada,
-                "Fase":                    1,
-                "Días de vacaciones":      dias_vacaciones,
-                "Monto Init":              monto_init,
+                "Fecha de proceso":          fecha_proceso,
+                "Id empleado":               rut,
+                "Número de contrato":        int(numero_contrato),
+                "Id del concepto":           "licenciaDias",
+                "Monto del concepto":        dias_licencia,
+                "Afecto":                    0,
+                "Id de institución":         "",
+                "Cotización de jubilación":  dias_licencia,
+                "Días de licencias":         dias_licencia,
+                "Días trabajados":           dias_vacaciones,
+                "Fecha de aplicación":       "x",
+                "Empresa":                   empresa_salida,
+                "Total de rebajas por LLSS": 0,
+                "Rentas no gravadas":        0,
+                "Rebaja por zona extrema":   0,
+                "Jornada":                   jornada,
+                "Días de vacaciones":        dias_vacaciones,
+                "Monto Init":                monto_init,
+                "Fase":                      1,
             })
 
     return pd.DataFrame(filas)
