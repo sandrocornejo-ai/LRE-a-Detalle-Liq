@@ -655,13 +655,13 @@ def generar_filas_salida(df, fecha_proceso, refs):
                 if not cot_afp.empty and "id_afp_hist" in cot_afp.columns:
                     r = cot_afp[cot_afp["id_afp_hist"] == key_afp]
                     if not r.empty:
-                        cot_jubilacion = r.iloc[0].get("cot_hist_afp", 0)
+                        cot_jubilacion = safe_num(r.iloc[0].get("cot_hist_afp", 0)) * 100
             elif id_concepto == "sis":
                 key_sis = f"{fecha_proceso}{id_institucion}"
                 if not cot_afp.empty and "id_afp_hist" in cot_afp.columns:
                     r = cot_afp[cot_afp["id_afp_hist"] == key_sis]
                     if not r.empty:
-                        cot_jubilacion = r.iloc[0].get("sis_hist", 0)
+                        cot_jubilacion = safe_num(r.iloc[0].get("sis_hist", 0)) * 100
             elif id_concepto == "cesEmpleado":
                 cot_jubilacion = 0.6
             elif id_concepto == "isapre":
@@ -720,176 +720,6 @@ def generar_filas_salida(df, fecha_proceso, refs):
 
     return pd.DataFrame(filas)
 
-
-    """Genera las filas del archivo de salida via pivot de conceptos."""
-    filas = []
-
-    # Cargar lookups
-    equiv = refs.get("equiv_conceptos", pd.DataFrame())
-    empleados = refs.get("listado_empleados", pd.DataFrame())
-    empresas = refs.get("listado_empresas", pd.DataFrame())
-    mutuales = refs.get("inst_mutuales", pd.DataFrame())
-    cajas = refs.get("inst_cajas", pd.DataFrame())
-    cot_afp = refs.get("cot_afp_hist", pd.DataFrame())
-    params = refs.get("parametros", pd.DataFrame())
-
-    # Diccionario de equivalencias de conceptos
-    equiv_dict = {}
-    if not equiv.empty and "cod_lre" in equiv.columns and "concepto_detalle" in equiv.columns:
-        equiv_dict = dict(zip(equiv["cod_lre"], equiv["concepto_detalle"]))
-
-    # Parámetros mensuales (primera fila)
-    tope_afp = 0
-    tope_ces = 0
-    if not params.empty:
-        if "topeImp_pesos_afp" in params.columns:
-            tope_afp = params["topeImp_pesos_afp"].iloc[0]
-        if "topeCes_pesos" in params.columns:
-            tope_ces = params["topeCes_pesos"].iloc[0]
-
-    # Columnas de conceptos (las que están en equiv_dict)
-    cols_concepto = [c for c in df.columns if c in equiv_dict]
-
-    for _, row in df.iterrows():
-        rut = row.get("Rut trabajador (1101)", "")
-
-        # Lookup empresa
-        empresa_salida = ""
-        if not empleados.empty and "Rut" in empleados.columns:
-            emp_row = empleados[empleados["Rut"] == rut]
-            if not emp_row.empty:
-                nombre_empresa = emp_row.iloc[0].get("Empresa", "")
-                if not empresas.empty and "Nombre" in empresas.columns:
-                    emp2 = empresas[empresas["Nombre"] == nombre_empresa]
-                    if not emp2.empty:
-                        empresa_salida = emp2.iloc[0].iloc[0]
-
-        # AFP e Isapre del empleado
-        afp_empleado = ""
-        isapre_empleado = ""
-        if not empleados.empty and "Rut" in empleados.columns:
-            emp_row = empleados[empleados["Rut"] == rut]
-            if not emp_row.empty:
-                afp_empleado = emp_row.iloc[0].get("AFP", "")
-                isapre_empleado = emp_row.iloc[0].get("Isapre", "")
-
-        dias_trabajados = row.get("Nro días trabajados en el mes(1115)", 0) or 0
-        dias_licencia = row.get("Nro días de licencia médica en el mes(1116)", 0) or 0
-        dias_vacaciones = row.get("Nro días de vacaciones en el mes(1117)", 0) or 0
-        sueldo = row.get("Sueldo(2101)", 0) or 0
-        total_imponible = row.get("Total haberes imponibles y tributables(5210)", 0) or 0
-        col_1152 = row.get("Org. administrador ley 16.744(1152)", "")
-        col_3110 = row.get("Crédito social CCAF(3110)", 0) or 0
-        rebaja_zona = row.get("Rebaja zona extrema DL 889 (3167)", 0) or 0
-
-        monto_init = (sueldo / dias_trabajados * 30) if dias_trabajados > 0 else 0
-
-        # Fila por cada concepto
-        for col_csv in cols_concepto:
-            monto = row.get(col_csv, 0) or 0
-            id_concepto = equiv_dict.get(col_csv, "")
-
-            # Si el trabajador tiene licencia mes completo, solo incluir conceptos permitidos
-            if dias_trabajados == 0 and id_concepto not in CONCEPTOS_LICENCIA_MES_COMPLETO:
-                continue
-
-            # Id de institución
-            id_institucion = ""
-            if id_concepto in GRUPOS_AFP:
-                id_institucion = afp_empleado
-            elif id_concepto in GRUPOS_ISAPRE:
-                id_institucion = isapre_empleado
-            elif id_concepto in GRUPOS_MUTUAL:
-                if not mutuales.empty and "cod_lre" in mutuales.columns and "id_mutual" in mutuales.columns:
-                    m = mutuales[mutuales["cod_lre"] == col_1152]
-                    if not m.empty:
-                        id_institucion = m.iloc[0]["id_mutual"]
-            elif id_concepto in GRUPOS_CCAF and col_3110 != 0:
-                if not cajas.empty:
-                    c = cajas[cajas.iloc[:, 0] == col_3110]
-                    if not c.empty and "id_ccaf" in cajas.columns:
-                        id_institucion = c.iloc[0]["id_ccaf"]
-
-            # Afecto
-            afecto = ""
-            if id_concepto in GRUPOS_AFP_MUTUAL_AFECTO:
-                afecto = min(total_imponible, tope_afp) if tope_afp > 0 else total_imponible
-            elif id_concepto in GRUPOS_CES_AFECTO:
-                afecto = min(total_imponible, tope_ces) if tope_ces > 0 else total_imponible
-
-            # Cotización de jubilación
-            cot_jubilacion = 0
-            if id_concepto == "afp":
-                key_afp = f"{fecha_proceso}{id_institucion}"
-                if not cot_afp.empty and "id_afp_hist" in cot_afp.columns:
-                    r = cot_afp[cot_afp["id_afp_hist"] == key_afp]
-                    if not r.empty:
-                        cot_jubilacion = r.iloc[0].get("cot_hist_afp", 0)
-            elif id_concepto == "sis":
-                key_sis = f"{fecha_proceso}{id_institucion}"
-                if not cot_afp.empty and "id_afp_hist" in cot_afp.columns:
-                    r = cot_afp[cot_afp["id_afp_hist"] == key_sis]
-                    if not r.empty:
-                        cot_jubilacion = r.iloc[0].get("sis_hist", 0)
-            elif id_concepto == "cesEmpleado":
-                cot_jubilacion = 0.6
-            elif id_concepto == "isapre":
-                cot_jubilacion = monto
-            elif id_concepto == "mutual":
-                if not mutuales.empty and "cod_lre" in mutuales.columns and "nombre_mutual" in mutuales.columns:
-                    m = mutuales[mutuales["cod_lre"] == col_1152]
-                    if not m.empty:
-                        nombre_mutual = m.iloc[0]["nombre_mutual"]
-                        if not empresas.empty and "Mutual" in empresas.columns and "Cotización Mutual" in empresas.columns:
-                            e = empresas[empresas["Mutual"] == nombre_mutual]
-                            if not e.empty:
-                                cot_jubilacion = e.iloc[0]["Cotización Mutual"]
-            elif id_concepto == "licenciaDias":
-                cot_jubilacion = dias_licencia
-
-            filas.append({
-                "Fecha de proceso": fecha_proceso,
-                "Id empleado": rut,
-                "Número de contrato": 1,
-                "Id del concepto": id_concepto,
-                "Monto del concepto": monto,
-                "Afecto": afecto,
-                "Id de institución": id_institucion,
-                "Cotización de jubilación": cot_jubilacion,
-                "Días de licencias": dias_licencia,
-                "Días trabajados": dias_vacaciones,
-                "Fecha de aplicación": "x",
-                "Empresa": empresa_salida,
-                "Total de rebajas por L": rebaja_zona,
-                "Jornada": "C",
-                "Fase": 1,
-                "Días de vacaciones": dias_vacaciones,
-                "Monto Init": monto_init,
-            })
-
-        # Fila adicional licenciaDias si aplica
-        if dias_licencia > 0:
-            filas.append({
-                "Fecha de proceso": fecha_proceso,
-                "Id empleado": rut,
-                "Número de contrato": 1,
-                "Id del concepto": "licenciaDias",
-                "Monto del concepto": dias_licencia,
-                "Afecto": "",
-                "Id de institución": "",
-                "Cotización de jubilación": dias_licencia,
-                "Días de licencias": dias_licencia,
-                "Días trabajados": dias_vacaciones,
-                "Fecha de aplicación": "x",
-                "Empresa": empresa_salida,
-                "Total de rebajas por L": rebaja_zona,
-                "Jornada": "C",
-                "Fase": 1,
-                "Días de vacaciones": dias_vacaciones,
-                "Monto Init": monto_init,
-            })
-
-    return pd.DataFrame(filas)
 
 def generar_excel(df_salida):
     """Genera el Excel de salida con formato."""
