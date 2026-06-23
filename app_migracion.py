@@ -838,7 +838,9 @@ with nav_migracion:
         if st.button("▶ Generar archivo de salida"):
             with st.spinner("Procesando archivo..."):
                 try:
+                    archivo_lre.seek(0)
                     df = pd.read_excel(archivo_lre)
+                    archivo_empleados.seek(0)
                     refs["listado_empleados"] = pd.read_excel(archivo_empleados)
 
                     # Extraer fecha de proceso desde la columna "Fecha de proceso"
@@ -848,17 +850,23 @@ with nav_migracion:
                         fecha_proceso = datetime.now().strftime("%Y-%m")
 
                     df_final = generar_filas_salida(df, fecha_proceso, refs)
-                    excel_bytes = generar_excel(df_final)
 
-                    st.markdown('<div class="alert-success">✅ Archivo generado exitosamente.</div>', unsafe_allow_html=True)
-                    st.download_button(
-                        label="⬇️ Descargar archivo de salida (.xlsx)",
-                        data=excel_bytes,
-                        file_name=f"migracion_lre_{fecha_proceso}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                    )
+                    if df_final.empty:
+                        st.markdown('<div class="alert-error">❌ El archivo de salida quedó vacío. Columnas detectadas en el archivo de entrada:</div>', unsafe_allow_html=True)
+                        st.write(list(df.columns))
+                    else:
+                        excel_bytes = generar_excel(df_final)
+                        st.markdown(f'<div class="alert-success">✅ Archivo generado: <b>{len(df_final)} filas</b>.</div>', unsafe_allow_html=True)
+                        st.download_button(
+                            label="⬇️ Descargar archivo de salida (.xlsx)",
+                            data=excel_bytes,
+                            file_name=f"migracion_lre_{fecha_proceso}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                        )
                 except Exception as e:
-                    st.markdown(f'<div class="alert-error">❌ Error al procesar el archivo: <b>{e}</b></div>', unsafe_allow_html=True)
+                    import traceback
+                    st.markdown(f'<div class="alert-error">❌ Error: <b>{e}</b></div>', unsafe_allow_html=True)
+                    st.code(traceback.format_exc())
 
 with nav_dt:
     render_modulo_dt(refs)
