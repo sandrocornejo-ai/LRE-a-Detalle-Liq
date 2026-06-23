@@ -1112,59 +1112,64 @@ def render_modulo_dt(refs_compartidas):
 
     st.markdown('<hr class="rex-divider">', unsafe_allow_html=True)
 
-    # ── Upload archivo DT ──
-    st.markdown("### 📤 Archivo CSV de la Dirección del Trabajo")
-    archivo_dt = st.file_uploader(
-        "Selecciona el archivo CSV de la DT",
-        type=["csv"],
-        accept_multiple_files=False,
-        key="dt_csv_upload",
-        help="Archivo descargado desde el portal de la Dirección del Trabajo. El encabezado puede estar al inicio o al final."
-    )
+    # ── Uploaders en 2x2 ──
+    col_up1, col_up2 = st.columns(2)
 
-    # ── Upload listado empleados ──
-    st.markdown("### 👥 Listado de empleados del período")
-    archivo_empleados = st.file_uploader(
-        "Sube el archivo listado_empleados.xlsx del período",
-        type=["xlsx"],
-        accept_multiple_files=False,
-        key="dt_empleados_upload",
-        help="Exportado desde Rex+. Debe contener columnas: Rut, Nombre, Empresa, Contrato."
-    )
+    with col_up1:
+        st.markdown("#### 📤 Archivo CSV de la Dirección del Trabajo")
+        archivo_dt = st.file_uploader(
+            "Selecciona el archivo CSV de la DT",
+            type=["csv"],
+            accept_multiple_files=False,
+            key="dt_csv_upload",
+            help="Archivo descargado desde el portal de la Dirección del Trabajo."
+        )
+        if archivo_dt:
+            st.markdown(f'<div class="alert-success">✅ <b>{archivo_dt.name}</b></div>', unsafe_allow_html=True)
 
-    # ── Upload listado empresas ──
-    st.markdown("### 🏢 Listado de empresas del período")
-    archivo_empresas = st.file_uploader(
-        "Sube el archivo listado_empresas.xlsx del período",
-        type=["xlsx"],
-        accept_multiple_files=False,
-        key="dt_empresas_upload",
-        help="Exportado desde Rex+. Debe contener columnas: Empresa, Nombre, Cotización Mutual."
-    )
+    with col_up2:
+        st.markdown("#### 👥 Listado de empleados del período")
+        archivo_empleados = st.file_uploader(
+            "Sube el archivo listado_empleados.xlsx del período",
+            type=["xlsx"],
+            accept_multiple_files=False,
+            key="dt_empleados_upload",
+            help="Exportado desde Rex+. Debe contener columnas: Rut, Nombre, Empresa, Contrato."
+        )
+        if archivo_empleados:
+            st.markdown(f'<div class="alert-success">✅ <b>{archivo_empleados.name}</b></div>', unsafe_allow_html=True)
+        else:
+            st.markdown('<div class="alert-warning">⚠️ Requerido para ejecutar el proceso.</div>', unsafe_allow_html=True)
 
-    if archivo_empleados:
-        st.markdown(f'<div class="alert-success">✅ Listado de empleados cargado: <b>{archivo_empleados.name}</b></div>', unsafe_allow_html=True)
-    else:
-        st.markdown('<div class="alert-warning">⚠️ Debes subir el listado de empleados para ejecutar el proceso.</div>', unsafe_allow_html=True)
+    col_up3, col_up4 = st.columns(2)
 
-    if archivo_empresas:
-        st.markdown(f'<div class="alert-success">✅ Listado de empresas cargado: <b>{archivo_empresas.name}</b></div>', unsafe_allow_html=True)
-    else:
-        st.markdown('<div class="alert-warning">⚠️ Debes subir el listado de empresas para ejecutar el proceso.</div>', unsafe_allow_html=True)
+    with col_up3:
+        st.markdown("#### 🏢 Listado de empresas del período")
+        archivo_empresas = st.file_uploader(
+            "Sube el archivo listado_empresas.xlsx del período",
+            type=["xlsx"],
+            accept_multiple_files=False,
+            key="dt_empresas_upload",
+            help="Exportado desde Rex+. Debe contener columnas: Empresa, Nombre, Cotización Mutual."
+        )
+        if archivo_empresas:
+            st.markdown(f'<div class="alert-success">✅ <b>{archivo_empresas.name}</b></div>', unsafe_allow_html=True)
+        else:
+            st.markdown('<div class="alert-warning">⚠️ Requerido para ejecutar el proceso.</div>', unsafe_allow_html=True)
 
-    # ── Upload parámetros mensuales ──
-    st.markdown("### 📅 Parámetros mensuales")
-    archivo_params_dt = st.file_uploader(
-        "Sube el archivo parametrosMesuales.xlsx del período",
-        type=["xlsx"],
-        accept_multiple_files=False,
-        key="dt_params_upload",
-        help="Archivo con los parámetros legales del mes a procesar."
-    )
-    if archivo_params_dt:
-        st.markdown(f'<div class="alert-success">✅ Parámetros mensuales cargados: <b>{archivo_params_dt.name}</b></div>', unsafe_allow_html=True)
-    else:
-        st.markdown('<div class="alert-warning">⚠️ Debes subir el archivo de parámetros mensuales para ejecutar el proceso.</div>', unsafe_allow_html=True)
+    with col_up4:
+        st.markdown("#### 📅 Parámetros mensuales")
+        archivo_params_dt = st.file_uploader(
+            "Sube el archivo parametrosMesuales.xlsx del período",
+            type=["xlsx"],
+            accept_multiple_files=False,
+            key="dt_params_upload",
+            help="Archivo con los parámetros legales del mes a procesar."
+        )
+        if archivo_params_dt:
+            st.markdown(f'<div class="alert-success">✅ <b>{archivo_params_dt.name}</b></div>', unsafe_allow_html=True)
+        else:
+            st.markdown('<div class="alert-warning">⚠️ Requerido para ejecutar el proceso.</div>', unsafe_allow_html=True)
 
     if not archivo_dt or not archivo_empleados or not archivo_empresas or not archivo_params_dt:
         return

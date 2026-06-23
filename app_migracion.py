@@ -922,32 +922,33 @@ with nav_migracion:
 
     st.markdown('<hr class="rex-divider">', unsafe_allow_html=True)
 
-    # Upload archivo base LRE
-    st.markdown("### 📤 Archivo base LRE de Rex+")
-    archivo_lre = st.file_uploader(
-        "Selecciona el archivo Excel exportado desde Rex+",
-        type=["xlsx"],
-        accept_multiple_files=False,
-        key="lre_upload"
-    )
+    # ── Uploaders en 1x2 ──
+    col_up1, col_up2 = st.columns(2)
 
-    # Upload listado_empleados
-    st.markdown("### 👥 Listado de empleados del período")
-    archivo_empleados = st.file_uploader(
-        "Sube el archivo listado_empleados.xlsx correspondiente al período a procesar",
-        type=["xlsx"],
-        accept_multiple_files=False,
-        key="emp_upload",
-        help="Este archivo cambia en cada proceso."
-    )
+    with col_up1:
+        st.markdown("#### 📤 Archivo base LRE de Rex+")
+        archivo_lre = st.file_uploader(
+            "Selecciona el archivo Excel exportado desde Rex+",
+            type=["xlsx"],
+            accept_multiple_files=False,
+            key="lre_upload"
+        )
+        if archivo_lre:
+            st.markdown(f'<div class="alert-success">✅ <b>{archivo_lre.name}</b></div>', unsafe_allow_html=True)
 
-    if archivo_empleados:
-        st.markdown(f'<div class="alert-success">✅ Listado de empleados cargado: <b>{archivo_empleados.name}</b></div>', unsafe_allow_html=True)
-    else:
-        st.markdown('<div class="alert-warning">⚠️ Debes subir el listado de empleados del período para ejecutar el proceso.</div>', unsafe_allow_html=True)
-
-    if archivo_lre:
-        st.markdown(f'<div class="alert-success">✅ Archivo LRE cargado: <b>{archivo_lre.name}</b></div>', unsafe_allow_html=True)
+    with col_up2:
+        st.markdown("#### 👥 Listado de empleados del período")
+        archivo_empleados = st.file_uploader(
+            "Sube el archivo listado_empleados.xlsx del período",
+            type=["xlsx"],
+            accept_multiple_files=False,
+            key="emp_upload",
+            help="Este archivo cambia en cada proceso."
+        )
+        if archivo_empleados:
+            st.markdown(f'<div class="alert-success">✅ <b>{archivo_empleados.name}</b></div>', unsafe_allow_html=True)
+        else:
+            st.markdown('<div class="alert-warning">⚠️ Requerido para ejecutar el proceso.</div>', unsafe_allow_html=True)
 
     if archivo_lre and archivo_empleados:
         if st.button("▶ Generar archivo de salida"):
