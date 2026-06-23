@@ -871,7 +871,7 @@ def generar_filas_salida(df, fecha_proceso, refs):
                 "Id de institución":         id_institucion,
                 "Cotización de jubilación":  cot_jubilacion,
                 "Días de licencias":         dias_licencia,
-                "Días trabajados":           dias_vacaciones,
+                "Días trabajados":           30 - dias_licencia,
                 "Fecha de aplicación":       "x",
                 "Empresa":                   empresa_salida,
                 "Total de rebajas por LLSS": rebajas_llss if id_concepto == "impuesto" else 0,
