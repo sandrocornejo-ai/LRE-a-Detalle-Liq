@@ -771,8 +771,14 @@ def generar_filas_salida(df, fecha_proceso, refs):
         # ── Rebaja por zona extrema (código 3167) ──
         rebaja_zona = safe_num(row.get(COD_COL_REX.get(3167, ""), 0))
 
-        # ── Total rebajas por LLSS = min(3143+3144, tope_salud) ──
-        rebajas_llss = round(salud_tope, 2)
+        # ── Total rebajas por LLSS = min(3143+3144, tope_salud) + 3141 + 3151 + 3154 + 3156 ──
+        rebajas_llss = round(
+            salud_tope +
+            safe_num(row.get(COD_COL_REX.get(3141, ""), 0)) +
+            safe_num(row.get(COD_COL_REX.get(3151, ""), 0)) +
+            safe_num(row.get(COD_COL_REX.get(3154, ""), 0)) +
+            safe_num(row.get(COD_COL_REX.get(3156, ""), 0)),
+        2)
 
         monto_init = round((sueldo / dias_trabajados) * 30, 0) if dias_trabajados > 0 else 0
 
@@ -876,9 +882,9 @@ def generar_filas_salida(df, fecha_proceso, refs):
                 "Monto Init":                monto_init,
                 "Fase":                      1,
             })
-
-        # Fila adicional licenciaDias si aplica
         if dias_licencia > 0 and "licenciaDias" not in conceptos_ya_generados:
+            dias_trab_lic = 30 - dias_licencia
+            monto_init_lic = round((sueldo / dias_trab_lic) * 30, 0) if dias_trab_lic > 0 else 0
             filas.append({
                 "Fecha de proceso":          fecha_proceso,
                 "Id empleado":               rut,
@@ -889,7 +895,7 @@ def generar_filas_salida(df, fecha_proceso, refs):
                 "Id de institución":         "",
                 "Cotización de jubilación":  dias_licencia,
                 "Días de licencias":         dias_licencia,
-                "Días trabajados":           dias_vacaciones,
+                "Días trabajados":           dias_trab_lic,
                 "Fecha de aplicación":       "x",
                 "Empresa":                   empresa_salida,
                 "Total de rebajas por LLSS": 0,
@@ -897,7 +903,7 @@ def generar_filas_salida(df, fecha_proceso, refs):
                 "Rebaja por zona extrema":   0,
                 "Jornada":                   jornada,
                 "Días de vacaciones":        dias_vacaciones,
-                "Monto Init":                monto_init,
+                "Monto Init":                monto_init_lic,
                 "Fase":                      1,
             })
 
