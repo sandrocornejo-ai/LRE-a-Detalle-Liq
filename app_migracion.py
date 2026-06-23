@@ -922,8 +922,8 @@ with nav_migracion:
 
     st.markdown('<hr class="rex-divider">', unsafe_allow_html=True)
 
-    # ── Uploaders en 1x2 ──
-    col_up1, col_up2 = st.columns(2)
+    # ── Uploaders en 3 columnas ──
+    col_up1, col_up2, col_up3 = st.columns(3)
 
     with col_up1:
         st.markdown("#### 📤 Archivo base LRE de Rex+")
@@ -950,7 +950,21 @@ with nav_migracion:
         else:
             st.markdown('<div class="alert-warning">⚠️ Requerido para ejecutar el proceso.</div>', unsafe_allow_html=True)
 
-    if archivo_lre and archivo_empleados:
+    with col_up3:
+        st.markdown("#### 📅 Parámetros mensuales")
+        archivo_params_lre = st.file_uploader(
+            "Sube el archivo parametrosMesuales.xlsx del período",
+            type=["xlsx"],
+            accept_multiple_files=False,
+            key="params_lre_upload",
+            help="Archivo con los parámetros legales del mes a procesar."
+        )
+        if archivo_params_lre:
+            st.markdown(f'<div class="alert-success">✅ <b>{archivo_params_lre.name}</b></div>', unsafe_allow_html=True)
+        else:
+            st.markdown('<div class="alert-warning">⚠️ Requerido para calcular topes AFP y cesantía.</div>', unsafe_allow_html=True)
+
+    if archivo_lre and archivo_empleados and archivo_params_lre:
         if st.button("▶ Generar archivo de salida"):
             with st.spinner("Procesando archivo..."):
                 try:
@@ -958,6 +972,8 @@ with nav_migracion:
                     df = pd.read_excel(archivo_lre)
                     archivo_empleados.seek(0)
                     refs["listado_empleados"] = pd.read_excel(archivo_empleados)
+                    archivo_params_lre.seek(0)
+                    refs["parametros"] = pd.read_excel(archivo_params_lre, sheet_name="Hoja2", dtype={"mes_Proc": str})
 
                     # Extraer fecha de proceso
                     if "Fecha de proceso" in df.columns:
