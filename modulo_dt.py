@@ -194,6 +194,12 @@ LRE_COLUMNAS = {
 # ─────────────────────────────────────────────
 # FUNCIÓN DE BÚSQUEDA DE COLUMNA POR CÓDIGO
 # ─────────────────────────────────────────────
+def extraer_codigo(nombre_col):
+    """Extrae el código numérico entre paréntesis de un nombre de columna
+    (ej: 'Sueldo (2101)' o 'Sueldo(2101)' → 2101). Retorna None si no encuentra."""
+    m = re.search(r"\((\d+)\)", str(nombre_col))
+    return int(m.group(1)) if m else None
+
 def find_col(df, codigo):
     """Retorna el nombre de columna del DataFrame que contiene (codigo).
     Busca primero por el nombre oficial en LRE_COLUMNAS, luego por patrón (codigo)."""
@@ -587,18 +593,32 @@ def generar_filas_dt(df, fecha_proceso, refs, df_empleados, df_empresas_externo=
             tope_afp   = safe_num(row_params.iloc[0].get("topeImp_pesos_afp", 0))
             tope_ces   = safe_num(row_params.iloc[0].get("topeCes_pesos", 0))
 
-    # ── Mapa de equivalencias: cod_lre → concepto_detalle + Tipo ──
-    equiv_map  = {}  # col_csv → concepto_detalle
-    tipo_map   = {}  # concepto_detalle → Tipo
+    # ── Mapa de equivalencias: código numérico → concepto_detalle + Tipo ──
+    # NOTA: se resuelve por código (código) en vez de nombre exacto de columna,
+    # ya que el archivo DT puede traer nombres de columna con variaciones
+    # respecto al nombre oficial LRE (espacios, mayúsculas, etc.), igual que
+    # find_col(). Comparar por string exacto dejaba cols_conceptos vacío
+    # cuando había diferencias de nombre, y por lo tanto no se generaba
+    # ninguna fila de salida aunque las validaciones cuadraran.
+    equiv_map_by_code = {}  # código (int) → concepto_detalle
+    tipo_map = {}           # concepto_detalle → Tipo
     if not equiv.empty and "cod_lre" in equiv.columns and "concepto_detalle" in equiv.columns:
         for _, er in equiv.iterrows():
-            col_csv   = str(er["cod_lre"]).strip()
-            concepto  = str(er["concepto_detalle"]).strip()
-            tipo      = str(er.get("Tipo", "")).strip()
+            codigo_equiv = extraer_codigo(er["cod_lre"])
+            concepto     = str(er["concepto_detalle"]).strip()
+            tipo         = str(er.get("Tipo", "")).strip()
             # Solo mapear la primera aparición para evitar duplicados de isapre
-            if col_csv not in equiv_map:
-                equiv_map[col_csv] = concepto
+            if codigo_equiv is not None and codigo_equiv not in equiv_map_by_code:
+                equiv_map_by_code[codigo_equiv] = concepto
             tipo_map[concepto] = tipo
+
+    # Resolver cada columna real del df a su concepto, por código numérico
+    # (tolerante a diferencias de nombre respecto al oficial LRE)
+    equiv_map = {}  # nombre real de columna en df → concepto_detalle
+    for col in df.columns:
+        codigo_col = extraer_codigo(col)
+        if codigo_col is not None and codigo_col in equiv_map_by_code:
+            equiv_map[col] = equiv_map_by_code[codigo_col]
 
     # Columnas del CSV que tienen equivalencia (excluir col salud voluntaria para isapre, se suma manualmente)
     col_salud_vol = find_col(df, COD_SALUD_VOL)
@@ -684,12 +704,13 @@ def generar_filas_dt(df, fecha_proceso, refs, df_empleados, df_empresas_externo=
         # ── Total rebajas por LLSS (solo para concepto impuesto) ──
         salud_trab = (safe_num(row.get(col_salud7, 0) if col_salud7 else 0) +
                       safe_num(row.get(col_salud_vol, 0) if col_salud_vol else 0))
+        salud_tope = min(salud_trab, tope_salud) if tope_salud > 0 else salud_trab
         total_rebajas_llss = (
             safe_num(row.get(col_afp, 0) if col_afp else 0)
             + safe_num(row.get(col_ces_trab, 0) if col_ces_trab else 0)
             + safe_num(row.get(col_apvi_mod_b, 0) if col_apvi_mod_b else 0)
             + safe_num(row.get(col_trab_pesado, 0) if col_trab_pesado else 0)
-            + min(salud_trab, tope_salud) if tope_salud > 0 else salud_trab
+            + salud_tope
         )
 
         # ── Código de institución del trabajador ──
@@ -911,36 +932,6 @@ def generar_excel_log(df_log):
     ws.freeze_panes = "A2"
     wb.save(output)
     return output.getvalue()
-
-
-# ─────────────────────────────────────────────
-# COLUMNAS PARA VALIDACIONES (igual que Previred)
-# ─────────────────────────────────────────────
-CODES_HABERES_AFECTOS_DT = [
-    2101, 2102, 2103, 2104, 2105, 2106, 2107, 2108, 2109, 2110,
-    2111, 2112, 2113, 2114, 2115, 2116, 2117, 2118, 2119, 2120,
-    2121, 2122, 2123, 2124, 2161, 2201, 2202, 2203
-]
-
-CODES_HABERES_EXENTOS_DT = [
-    2204, 2301, 2302, 2303, 2304, 2305, 2311, 2306, 2307, 2308,
-    2309, 2347, 2310, 2312, 2313, 2314, 2315, 2316, 2331, 2417, 2418
-]
-
-CODES_DESCUENTOS_LEGALES_DT = [
-    3141, 3143, 3144, 3151, 3146, 3147, 3155, 3156, 3157, 3158,
-    3161, 3162, 3163, 3164, 3165, 3166, 3167
-]
-
-CODES_OTROS_DESCUENTOS_DT = [
-    3171, 3172, 3173, 3174, 3175, 3176, 3177, 3178, 3179, 3180,
-    3110, 3181, 3182, 3183, 3154, 3184, 3185, 3186, 3187, 3188
-]
-
-CODES_APORTES_EMPLEADOR_DT = [
-    4151, 4152, 4154, 4155, 4157
-]
-
 
 
 
