@@ -1075,6 +1075,7 @@ def render_modulo_dt(refs_compartidas):
     Renderiza la interfaz del módulo DT dentro del tab de Streamlit.
     refs_compartidas: dict con archivos de referencia ya cargados por app_migracion.
     """
+    st.error("MARCA-DE-PRUEBA-999 — este es el archivo de la RAÍZ")
     st.markdown('<div class="section-title">🏛️ Migración Declaración Jurada DT</div>', unsafe_allow_html=True)
     st.markdown('<div class="section-sub">Procesa el archivo descargado directamente desde la Dirección del Trabajo y genera el archivo de liquidaciones en detalle Rex+.</div>', unsafe_allow_html=True)
 
