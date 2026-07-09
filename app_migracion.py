@@ -371,6 +371,7 @@ LABELS_PARAMS = {
 def cargar_referencias():
     refs = {}
     archivos = {
+        "equiv_conceptos": "equiv_conceptos.xlsx",
         "listado_empresas": "listado_empresas.xlsx",
         "inst_mutuales": "inst_mutuales.xlsx",
         "inst_cajas": "inst_cajas.xlsx",
