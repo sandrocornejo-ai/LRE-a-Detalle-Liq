@@ -1070,7 +1070,6 @@ def validar_cuadraturas_dt(df, nombre_archivo):
 # INTERFAZ STREAMLIT DEL MÓDULO DT
 # ─────────────────────────────────────────────
 
-st.error("MARCA-DE-PRUEBA-999 — este es el archivo de la RAÍZ")
 def render_modulo_dt(refs_compartidas):
     """
     Renderiza la interfaz del módulo DT dentro del tab de Streamlit.
