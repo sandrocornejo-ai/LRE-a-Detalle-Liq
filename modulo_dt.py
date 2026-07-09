@@ -1069,13 +1069,11 @@ def validar_cuadraturas_dt(df, nombre_archivo):
 # ─────────────────────────────────────────────
 # INTERFAZ STREAMLIT DEL MÓDULO DT
 # ─────────────────────────────────────────────
-
 def render_modulo_dt(refs_compartidas):
     """
     Renderiza la interfaz del módulo DT dentro del tab de Streamlit.
     refs_compartidas: dict con archivos de referencia ya cargados por app_migracion.
     """
-    st.error("MARCA-DE-PRUEBA-999 — este es el archivo de la RAÍZ")
     st.markdown('<div class="section-title">🏛️ Migración Declaración Jurada DT</div>', unsafe_allow_html=True)
     st.markdown('<div class="section-sub">Procesa el archivo descargado directamente desde la Dirección del Trabajo y genera el archivo de liquidaciones en detalle Rex+.</div>', unsafe_allow_html=True)
 
@@ -1276,6 +1274,26 @@ def render_modulo_dt(refs_compartidas):
             except Exception as e:
                 st.markdown(f'<div class="alert-error">❌ Error al generar el archivo de salida: <b>{e}</b></div>', unsafe_allow_html=True)
                 return
+
+        # ── DIAGNÓSTICO TEMPORAL (quitar después de resolver) ──
+        with st.expander("🔧 DIAGNÓSTICO TEMPORAL", expanded=True):
+            st.write("fecha_proceso:", fecha_proceso)
+            st.write("filas df_dt (CSV):", len(df_dt))
+            st.write("filas df_empleados:", len(df_empleados))
+            st.write("'Rut' en df_empleados.columns:", "Rut" in df_empleados.columns)
+            equiv_dbg = refs_dt.get("equiv_conceptos")
+            st.write("equiv_conceptos cargado:", equiv_dbg is not None and not equiv_dbg.empty)
+            if equiv_dbg is not None and not equiv_dbg.empty:
+                st.write("equiv_conceptos shape:", equiv_dbg.shape)
+                st.write("equiv_conceptos columnas:", list(equiv_dbg.columns))
+                codigos_equiv = [extraer_codigo(c) for c in equiv_dbg["cod_lre"]] if "cod_lre" in equiv_dbg.columns else []
+                st.write("códigos extraídos de equiv_conceptos (no-None):", sum(1 for c in codigos_equiv if c is not None), "de", len(codigos_equiv))
+                codigos_csv = [extraer_codigo(c) for c in df_dt.columns]
+                match_count = sum(1 for c in codigos_csv if c is not None and c in set(x for x in codigos_equiv if x is not None))
+                st.write("columnas del CSV que matchean por código con equiv_conceptos:", match_count, "de", len(df_dt.columns))
+            st.write("filas df_salida generadas:", len(df_salida))
+            st.write("filas df_log_contratos (excluidos):", len(df_log_contratos))
+        # ── FIN DIAGNÓSTICO TEMPORAL ──
 
         # ── Mostrar log de problemas de contrato si hay ──
         if not df_log_contratos.empty:
