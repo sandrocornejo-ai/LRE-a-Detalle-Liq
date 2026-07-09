@@ -1281,6 +1281,10 @@ def render_modulo_dt(refs_compartidas):
             st.write("filas df_dt (CSV):", len(df_dt))
             st.write("filas df_empleados:", len(df_empleados))
             st.write("'Rut' en df_empleados.columns:", "Rut" in df_empleados.columns)
+            st.write("llaves en refs_compartidas:", list(refs_compartidas.keys()))
+            st.write("¿existe 'data/equiv_conceptos.xlsx'?:", os.path.exists("data/equiv_conceptos.xlsx"))
+            st.write("contenido carpeta 'data/' (raíz):", os.listdir("data") if os.path.exists("data") else "carpeta 'data' no existe en el cwd actual")
+            st.write("cwd actual:", os.getcwd())
             equiv_dbg = refs_dt.get("equiv_conceptos")
             st.write("equiv_conceptos cargado:", equiv_dbg is not None and not equiv_dbg.empty)
             if equiv_dbg is not None and not equiv_dbg.empty:
