@@ -784,7 +784,7 @@ def generar_filas_dt(df, fecha_proceso, refs, df_empleados, df_empresas_externo=
             elif id_concepto in CONCEPTOS_AFECTO_CES:
                 afecto = min(suma_haber_afecto, tope_ces) if tope_ces > 0 else suma_haber_afecto
             elif id_concepto == "totalesEmpl":
-                afecto = suma_haber_afecto + suma_haber_exento
+                afecto = suma_haber_afecto
             elif id_concepto == "impuesto":
                 afecto = suma_haber_afecto - total_rebajas_llss
             else:
@@ -802,6 +802,8 @@ def generar_filas_dt(df, fecha_proceso, refs, df_empleados, df_empresas_externo=
                 cot_jubilacion = cot_mutual
             elif id_concepto == "sis":
                 cot_jubilacion = safe_num(row_params.iloc[0].get("sis", 0)) if not row_params.empty else 0
+            elif id_concepto == "totalesEmpl":
+                cot_jubilacion = min(suma_haber_afecto, tope_afp) if tope_afp > 0 else suma_haber_afecto
 
             # ── Rentas no gravadas (solo si concepto = impuesto) ──
             rentas_no_grav = suma_haber_exento if id_concepto == "impuesto" else 0

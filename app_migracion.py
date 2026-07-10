@@ -166,78 +166,8 @@ html, body, [class*="css"] {
 """, unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────
-# EQUIVALENCIAS CONCEPTOS ARCHIVO BASE LRE REX+
-# Fuente: equiv_conceptos_ab_rex.xlsx — actualizar aquí si cambia
-# Formato: { "Nombre columna entrada": ("Id Concepto", "Tipo") }
+# CONSTANTES DE COLUMNAS
 # ─────────────────────────────────────────────
-EQUIV_CONCEPTOS_REX = {
-    "Nro días de licencia médica":                                                                              ("licenciaDias",         "Dato"),
-    "Sueldo(2101)":                                                                                             ("sueldoBase",           "Haber afecto"),
-    "Sobresueldo(2102)":                                                                                        ("sobresueldoMi",        "Haber afecto"),
-    "Comisiones(2103)":                                                                                         ("comisionMi",           "Haber afecto"),
-    "Semana corrida(2104)":                                                                                     ("semanaCorr",           "Haber afecto"),
-    "Participación(2105)":                                                                                      ("participacionMi",      "Haber afecto"),
-    "Gratificación(2106)":                                                                                      ("gratificacion",        "Haber afecto"),
-    "Recargo 30% día domingo (Art. 38) (2107)":                                                                 ("recargoMi",            "Haber afecto"),
-    "Remuneración variable pagada en vacaciones (Art 71) (cód 2108)":                                           ("remvarMi",             "Haber afecto"),
-    "Aguinaldo(2110)":                                                                                          ("AguinaldoMi",          "Haber afecto"),
-    "Bonos u otras remun. fijas mensuales(2111)":                                                               ("BonoMi",               "Haber afecto"),
-    "Tratos (mensual) (cód 2112)":                                                                              ("tratoMi",              "Haber afecto"),
-    "Bonos u otras remuneraciones variables mensuales o superiores a un mes (cód 2113)":                        ("bonsupMi",             "Haber afecto"),
-    "Beneficios en especie constitutivos de remuneración (cód 2115)":                                           ("benefMi",              "Haber afecto"),
-    "Otras remuneraciones superiores a un mes (cód 2123)":                                                      ("otremMi",              "Haber afecto"),
-    "Pago por horas de trabajo sindical (cód 2124)":                                                            ("pagosindMi",           "Haber afecto"),
-    "Subsidio por incapacidad laboral por licencia médica(2201)":                                               ("otrosHaberes",         "Haber afecto"),
-    "Beca de estudio (Art. 17 N°18 LIR) (cód 2202)":                                                           ("becaMi",               "Haber afecto"),
-    "Otros ingresos no constitutivos de renta (Art 17 N°29 LIR) (cód 2204)":                                    ("otingrMi",             "Haber exento"),
-    "Colación(2301)":                                                                                           ("colacion",             "Haber exento"),
-    "Movilización(2302)":                                                                                       ("movilizacion",         "Haber exento"),
-    "Viáticos totales mensual (Art 41) (cód 2303)":                                                             ("viaticoMi",            "Haber exento"),
-    "Asignación de pérdida de caja(2304)":                                                                      ("asigPerdCajaMi",       "Haber exento"),
-    "Asignación de desgaste herramienta(2305)":                                                                 ("AsigDesgHerrMi",       "Haber exento"),
-    "Gastos por causa del trabajo (Art 41 CdT) y gastos de representación (Art. 42 Nº1 LIR) (cód 2306)":       ("gastoMi",              "Haber exento"),
-    "Sala cuna (Art 203) (cód 2308)":                                                                           ("salaCMi",              "Haber exento"),
-    "Asignación familiar legal(2311)":                                                                          ("cargasSimp",           "Haber exento"),
-    "Asignación trabajo a distancia o teletrabajo(2309)":                                                       ("AsigTeletrabajoMi",    "Haber exento"),
-    "Alojamiento por razones de trabajo (2310)":                                                                ("alojamientoTrabajoMi", "Haber exento"),
-    "Asignación de traslación(2312)":                                                                           ("TraslacionMi",         "Haber exento"),
-    "Indemnización por feriado legal(2313)":                                                                    ("iasVacaciones",        "Haber exento"),
-    "Indemnización años de servicio(2314)":                                                                     ("iasLegal",             "Haber exento"),
-    "Indemnización sustitutiva del aviso previo(2315)":                                                         ("iasMes",               "Haber exento"),
-    "Indemnización fuero maternal (Art 163 bis) (cód 2316)":                                                    ("indemMMi",             "Haber exento"),
-    "Indemnización a todo evento (Art.164) (cód 2331)":                                                         ("indemNMi",             "Haber exento"),
-    "Indemnizaciones voluntarias tributables (cód 2417)":                                                       ("iasVoluntaria",        "Haber exento"),
-    "Indemnizaciones contractuales tributables (cód 2418)":                                                     ("iasafecta",            "Haber exento"),
-    "Cotización obligatoria previsional (AFP o IPS)(3141)":                                                     ("afp",                  "Descuento legal"),
-    "Cotización obligatoria salud 7%(3143)":                                                                    ("isapre",               "Descuento legal"),
-    "Cotización voluntaria para salud(3144)":                                                                   ("isapre",               "Descuento legal"),
-    "Cotización AFC - trabajador(3151)":                                                                        ("cesEmpleado",          "Descuento legal"),
-    "Cotización adicional trabajo pesado- trabajador (cód 3154)":                                               ("trabajoPesaEmpl",      "Descuento legal"),
-    "Cotización APVi Mod A(3155)":                                                                              ("apvi",                 "Descuento legal"),
-    "Cotización APVi Mod B hasta UF50(3156)":                                                                   ("apvi",                 "Descuento legal"),
-    "Impuesto retenido por remuneraciones(3161)":                                                               ("impuesto",             "Descuento legal"),
-    "Impuesto retenido por indemnizaciones (cód 3162)":                                                         ("imptoindMi",           "Descuento legal"),
-    "Mayor retención de impuesto solicitada por el trabajador (cód 3163)":                                      ("ppm",                  "Descuento legal"),
-    "Impuesto retenido por reliquidación de remuneraciones devengadas en otros períodos mensuales (cód 3164)":  ("reliquidaImpuesto",    "Descuento legal"),
-    "Retención préstamo clase media 2020 (Ley 21.252) (3166)":                                                  ("solidarioremu",        "Descuento legal"),
-    "Cuota sindical 1(3171)":                                                                                   ("CuotaSindMi",          "Otros descuentos"),
-    "Crédito social CCAF(3110)":                                                                                ("cajaCred",             "Otros descuentos"),
-    "Cuota vivienda o educación Art. 58 (cód 3181)":                                                            ("cuotavivMi",           "Otros descuentos"),
-    "Crédito cooperativas de ahorro (Art 54 Ley Coop.) (cód 3182)":                                             ("credMi",               "Otros descuentos"),
-    "Otros descuentos autorizados y solicitados por el trabajador (cód 3183)":                                  ("otrdescMi",            "Otros descuentos"),
-    "Otros descuentos(3185)":                                                                                   ("otrosDesctoMi",        "Otros descuentos"),
-    "Pensiones de alimentos(3186)":                                                                             ("retencionJudicial",    "Otros descuentos"),
-    "Descuentos por anticipos y préstamos(3188)":                                                               ("AnticipoPrestamoMi",   "Otros descuentos"),
-    "AFC - Aporte empleador solidario":                                                                         ("cesAporteSol",         "Aportes empleador"),
-    "AFC - Aporte empleador individual":                                                                        ("cesAporteCi",          "Aportes empleador"),
-    "Aporte empleador seguro accidentes del trabajo y Ley SANNA(4152)":                                         ("mutual",               "Aportes empleador"),
-    "Aporte adicional trabajo pesado- empleador (cód 4154)":                                                    ("trabajoPesa",          "Aportes empleador"),
-    "Rebaja zona extrema DL 889 (3167)":                                                                        ("zonaExtrema",          "Aportes empleador"),
-    "Aporte empleador seguro invalidez y sobrevivencia(4155)":                                                  ("sis",                  "Aportes empleador"),
-    "Total líquido(5501)":                                                                                      ("totalesEmpl",          "Liquido"),
-}
-
-
 COLS_HABERES_AFECTOS = [
     "Sueldo(2101)", "Sobresueldo(2102)", "Comisiones(2103)", "Semana corrida(2104)",
     "Participación(2105)", "Gratificación(2106)", "Recargo 30% día domingo(2107)",
@@ -320,12 +250,6 @@ GRUPOS_CCAF = {
     "ccafReliquida", "cajaCred", "cajaDent", "cajaLeas", "cajaVida",
     "cajaOtro", "cajaAhor", "cajaSegu", "cajaComp", "reliquidaCcaf"
 }
-CONCEPTOS_LICENCIA_MES_COMPLETO = {
-    "sueldoBase", "gratificacion", "afp", "isapre",
-    "cesEmpleado", "impuesto", "cesAporteCi", "mutual",
-    "sis", "totalesEmpl"
-}
-
 GRUPOS_AFP_MUTUAL_AFECTO = {
     "afp", "isapre", "reliquidaIsapre", "reliquidaAfp", "afpAhor",
     "trabajoPesaEmpl", "voluntarioCoti", "voluntarioAhor", "reliquidaTrabEmpl",
@@ -528,282 +452,148 @@ def get_col(df, col, default=0):
         return df[col].fillna(default)
     return pd.Series(default, index=df.index)
 
-def safe_num(v, default=0):
-    """Convierte un valor a número seguro."""
-    try:
-        v = float(str(v).replace(",", ".").strip())
-        return v if pd.notna(v) else default
-    except Exception:
-        return default
+def validar_archivos(archivos_subidos):
+    """Valida que todos los archivos sean de la misma empresa."""
+    nombres = [f.name for f in archivos_subidos]
+    prefijos = [n[:10] for n in nombres]
+    if len(set(prefijos)) > 1:
+        return False, prefijos
+    return True, prefijos
 
-COD_COL_REX = {
-    1116: "Nro días de licencia médica",
-    2101: "Sueldo(2101)", 2102: "Sobresueldo(2102)", 2103: "Comisiones(2103)",
-    2104: "Semana corrida(2104)", 2105: "Participación(2105)", 2106: "Gratificación(2106)",
-    2107: "Recargo 30% día domingo (Art. 38) (2107)",
-    2108: "Remuneración variable pagada en vacaciones (Art 71) (cód 2108)",
-    2110: "Aguinaldo(2110)", 2111: "Bonos u otras remun. fijas mensuales(2111)",
-    2112: "Tratos (mensual) (cód 2112)",
-    2113: "Bonos u otras remuneraciones variables mensuales o superiores a un mes (cód 2113)",
-    2115: "Beneficios en especie constitutivos de remuneración (cód 2115)",
-    2123: "Otras remuneraciones superiores a un mes (cód 2123)",
-    2124: "Pago por horas de trabajo sindical (cód 2124)",
-    2201: "Subsidio por incapacidad laboral por licencia médica(2201)",
-    2202: "Beca de estudio (Art. 17 N°18 LIR) (cód 2202)",
-    2204: "Otros ingresos no constitutivos de renta (Art 17 N°29 LIR) (cód 2204)",
-    2301: "Colación(2301)", 2302: "Movilización(2302)",
-    2303: "Viáticos totales mensual (Art 41) (cód 2303)",
-    2304: "Asignación de pérdida de caja(2304)",
-    2305: "Asignación de desgaste herramienta(2305)",
-    2306: "Gastos por causa del trabajo (Art 41 CdT) y gastos de representación (Art. 42 Nº1 LIR) (cód 2306)",
-    2308: "Sala cuna (Art 203) (cód 2308)",
-    2309: "Asignación trabajo a distancia o teletrabajo(2309)",
-    2310: "Alojamiento por razones de trabajo (2310)",
-    2311: "Asignación familiar legal(2311)",
-    2312: "Asignación de traslación(2312)",
-    2313: "Indemnización por feriado legal(2313)",
-    2314: "Indemnización años de servicio(2314)",
-    2315: "Indemnización sustitutiva del aviso previo(2315)",
-    2316: "Indemnización fuero maternal (Art 163 bis) (cód 2316)",
-    2331: "Indemnización a todo evento (Art.164) (cód 2331)",
-    2417: "Indemnizaciones voluntarias tributables (cód 2417)",
-    2418: "Indemnizaciones contractuales tributables (cód 2418)",
-    3141: "Cotización obligatoria previsional (AFP o IPS)(3141)",
-    3143: "Cotización obligatoria salud 7%(3143)",
-    3144: "Cotización voluntaria para salud(3144)",
-    3151: "Cotización AFC - trabajador(3151)",
-    3154: "Cotización adicional trabajo pesado- trabajador (cód 3154)",
-    3155: "Cotización APVi Mod A(3155)", 3156: "Cotización APVi Mod B hasta UF50(3156)",
-    3161: "Impuesto retenido por remuneraciones(3161)",
-    3162: "Impuesto retenido por indemnizaciones (cód 3162)",
-    3163: "Mayor retención de impuesto solicitada por el trabajador (cód 3163)",
-    3164: "Impuesto retenido por reliquidación de remuneraciones devengadas en otros períodos mensuales (cód 3164)",
-    3166: "Retención préstamo clase media 2020 (Ley 21.252) (3166)",
-    3171: "Cuota sindical 1(3171)", 3110: "Crédito social CCAF(3110)",
-    3181: "Cuota vivienda o educación Art. 58 (cód 3181)",
-    3182: "Crédito cooperativas de ahorro (Art 54 Ley Coop.) (cód 3182)",
-    3183: "Otros descuentos autorizados y solicitados por el trabajador (cód 3183)",
-    3185: "Otros descuentos(3185)", 3186: "Pensiones de alimentos(3186)",
-    3188: "Descuentos por anticipos y préstamos(3188)",
-    3167: "Rebaja zona extrema DL 889 (3167)",
-    4151: "AFC - Aporte empleador solidario",
-    4152: "Aporte empleador seguro accidentes del trabajo y Ley SANNA(4152)",
-    4154: "Aporte adicional trabajo pesado- empleador (cód 4154)",
-    4155: "Aporte empleador seguro invalidez y sobrevivencia(4155)",
-    5501: "Total líquido(5501)",
-}
+def calcular_totales(df):
+    """Calcula los 5 totales pre-validación."""
+    df = df.copy()
+    df["_total_haberes_afectos"] = safe_sum(df, COLS_HABERES_AFECTOS)
+    df["_total_haberes_exentos"] = safe_sum(df, COLS_HABERES_EXENTOS)
+    df["_total_descuentos_legales"] = safe_sum(df, COLS_DESCUENTOS_LEGALES)
+    df["_total_otros_descuentos"] = safe_sum(df, COLS_OTROS_DESCUENTOS)
+    df["_total_aportes_empleador"] = safe_sum(df, COLS_APORTES_EMPLEADOR)
+    return df
 
-CODIGOS_HABERES_REX = [
-    2101, 2102, 2103, 2104, 2105, 2106, 2107, 2108, 2110, 2111,
-    2112, 2113, 2115, 2123, 2124, 2201, 2202, 2204, 2301, 2302,
-    2303, 2304, 2305, 2306, 2308, 2311, 2309, 2310, 2312, 2313,
-    2314, 2315, 2316, 2331, 2417, 2418
-]
+def validar_cuadraturas(df, nombre_archivo):
+    """Ejecuta las 6 validaciones y retorna lista de errores."""
+    errores = []
+    tol = 1  # tolerancia de 1 peso por redondeo
 
-CODIGOS_DESCUENTOS_REX = [
-    3141, 3143, 3144, 3151, 3154, 3155, 3156, 3161, 3162, 3163,
-    3164, 3166, 3171, 3110, 3181, 3182, 3183, 3185, 3186, 3188
-]
+    validaciones = [
+        ("V1", "_total_haberes_afectos", "Total haberes imponibles y tributables(5210)",
+         "total_haberes_afectos ≠ Total haberes imponibles y tributables(5210)"),
+        ("V2", "_total_haberes_exentos", "Total haberes no imponibles y no tributables(5230)",
+         "total_haberes_exentos ≠ Total haberes no imponibles y no tributables(5230)"),
+        ("V3", "_total_descuentos_legales", "Total descuentos por cotizaciones del trabajador(5341)",
+         "total_descuentos_legales ≠ Total descuentos por cotizaciones del trabajador(5341)"),
+        ("V4", "_total_otros_descuentos", "Total otros descuentos(5302)",
+         "total_otros_descuentos ≠ Total otros descuentos(5302)"),
+        ("V5", "_total_aportes_empleador", "Total aportes empleador(5410)",
+         "total_aportes_empleador ≠ Total aportes empleador(5410)"),
+    ]
 
-def get_col_rex(df, codigo):
-    nombre = COD_COL_REX.get(codigo)
-    if nombre and nombre in df.columns:
-        return nombre
-    return None
+    for codigo, col_calc, col_ctrl, mensaje in validaciones:
+        if col_ctrl not in df.columns:
+            continue
+        ctrl = df[col_ctrl].fillna(0)
+        calc = df[col_calc].fillna(0)
+        mask = (calc - ctrl).abs() > tol
+        filas_error = df[mask]
+        for _, row in filas_error.iterrows():
+            errores.append({
+                "Archivo": nombre_archivo,
+                "RUT": row.get("Rut trabajador (1101)", "N/D"),
+                "Validación": codigo,
+                "Descripción": mensaje,
+                "Valor calculado": round(calc[row.name], 2),
+                "Valor control": round(ctrl[row.name], 2),
+                "Diferencia": round(calc[row.name] - ctrl[row.name], 2)
+            })
 
-def safe_sum_rex(df, codigos):
-    total = pd.Series(0.0, index=df.index)
-    for cod in codigos:
-        col = get_col_rex(df, cod)
-        if col:
-            total += pd.to_numeric(df[col], errors="coerce").fillna(0)
-    return total
+    # V6: liquidez
+    if all(c in df.columns for c in ["Total líquido(5501)"]):
+        liq_calc = (df["_total_haberes_afectos"] + df["_total_haberes_exentos"]) - \
+                   (df["_total_descuentos_legales"] + df["_total_otros_descuentos"])
+        liq_ctrl = df["Total líquido(5501)"].fillna(0)
+        mask = (liq_calc - liq_ctrl).abs() > tol
+        filas_error = df[mask]
+        for _, row in filas_error.iterrows():
+            errores.append({
+                "Archivo": nombre_archivo,
+                "RUT": row.get("Rut trabajador (1101)", "N/D"),
+                "Validación": "V6",
+                "Descripción": "(haberes_afectos + haberes_exentos) - (desc_legales + otros_desc) ≠ Total líquido(5501)",
+                "Valor calculado": round(liq_calc[row.name], 2),
+                "Valor control": round(liq_ctrl[row.name], 2),
+                "Diferencia": round(liq_calc[row.name] - liq_ctrl[row.name], 2)
+            })
 
-def validar_liquidez_rex(df):
-    tol = 1
-    col_dias_trab = "Nro días trabajados"
-    if col_dias_trab in df.columns:
-        df_val = df[pd.to_numeric(df[col_dias_trab], errors="coerce").fillna(0) != 0].copy()
-    else:
-        df_val = df.copy()
-
-    suma_haberes    = safe_sum_rex(df_val, CODIGOS_HABERES_REX)
-    suma_descuentos = safe_sum_rex(df_val, CODIGOS_DESCUENTOS_REX)
-    liquido_calc    = suma_haberes - suma_descuentos
-
-    col_5501 = get_col_rex(df_val, 5501)
-    if not col_5501:
-        return pd.DataFrame(), False
-
-    liquido_ctrl = pd.to_numeric(df_val[col_5501], errors="coerce").fillna(0)
-    mask = (liquido_calc - liquido_ctrl).abs() > tol
-
-    if not mask.any():
-        return pd.DataFrame(), False
-
-    df_errores = df_val[mask].copy()
-    df_errores["_Suma haberes calculada"]    = suma_haberes[mask].round(2)
-    df_errores["_Suma descuentos calculada"] = suma_descuentos[mask].round(2)
-    df_errores["_Liquido calculado"]         = liquido_calc[mask].round(2)
-    df_errores["_Liquido archivo (5501)"]    = liquido_ctrl[mask].round(2)
-    df_errores["_Diferencia"]                = (liquido_calc - liquido_ctrl)[mask].round(2)
-
-    return df_errores, True
-
+    return errores
 
 def generar_filas_salida(df, fecha_proceso, refs):
     """Genera las filas del archivo de salida via pivot de conceptos."""
     filas = []
 
     # Cargar lookups
-    empresas  = refs.get("listado_empresas", pd.DataFrame())
-    mutuales  = refs.get("inst_mutuales", pd.DataFrame())
-    cajas     = refs.get("inst_cajas", pd.DataFrame())
-    cot_afp   = refs.get("cot_afp_hist", pd.DataFrame())
-    params    = refs.get("parametros", pd.DataFrame())
+    equiv = refs.get("equiv_conceptos", pd.DataFrame())
+    empleados = refs.get("listado_empleados", pd.DataFrame())
+    empresas = refs.get("listado_empresas", pd.DataFrame())
+    mutuales = refs.get("inst_mutuales", pd.DataFrame())
+    cajas = refs.get("inst_cajas", pd.DataFrame())
+    cot_afp = refs.get("cot_afp_hist", pd.DataFrame())
+    params = refs.get("parametros", pd.DataFrame())
 
-    # Diccionario de equivalencias desde constante estática
-    # { nombre_columna: id_concepto }
-    equiv_dict = {col: conc for col, (conc, _) in EQUIV_CONCEPTOS_REX.items()}
-    # { id_concepto: [col1, col2, ...] }
-    concepto_a_cols = {}
-    for col, (conc, _) in EQUIV_CONCEPTOS_REX.items():
-        concepto_a_cols.setdefault(conc, []).append(col)
-    # { id_concepto: tipo }
-    tipo_dict = {conc: tipo for col, (conc, tipo) in EQUIV_CONCEPTOS_REX.items()}
+    # Diccionario de equivalencias de conceptos
+    equiv_dict = {}
+    if not equiv.empty and "cod_lre" in equiv.columns and "concepto_detalle" in equiv.columns:
+        equiv_dict = dict(zip(equiv["cod_lre"], equiv["concepto_detalle"]))
 
-    # Parámetros mensuales — filtrar por mes de proceso
-    tope_afp  = 0
-    tope_ces  = 0
-    tope_salud = 0
-    if not params.empty and "mes_Proc" in params.columns:
-        params["mes_Proc"] = params["mes_Proc"].astype(str).str.strip()
-        fila_params = params[params["mes_Proc"] == fecha_proceso]
-        if not fila_params.empty:
-            tope_afp   = safe_num(fila_params["topeImp_pesos_afp"].iloc[0]) if "topeImp_pesos_afp" in params.columns else 0
-            tope_ces   = safe_num(fila_params["topeCes_pesos"].iloc[0])     if "topeCes_pesos"      in params.columns else 0
-            tope_salud = safe_num(fila_params["topeSalud_pesos"].iloc[0])   if "topeSalud_pesos"    in params.columns else 0
+    # Parámetros mensuales (primera fila)
+    tope_afp = 0
+    tope_ces = 0
+    if not params.empty:
+        if "topeImp_pesos_afp" in params.columns:
+            tope_afp = params["topeImp_pesos_afp"].iloc[0]
+        if "topeCes_pesos" in params.columns:
+            tope_ces = params["topeCes_pesos"].iloc[0]
 
-    # Códigos base imponible (misma base para AFP, CES e impuesto)
-    CODIGOS_BASE_IMPONIBLE = [2101,2102,2103,2104,2105,2106,2107,2108,2110,2111,2112,2113,2115,2123,2124,2201,2202]
-
-    # Códigos para afecto totalesEmpl (base imponible + haberes exentos)
-    CODIGOS_TOTALES_EMPL = [
-        2101,2102,2103,2104,2105,2106,2107,2108,2110,2111,2112,2113,2115,2123,2124,
-        2201,2202,2204,2301,2302,2303,2304,2305,2306,2308,2311,2309,2310,2312,
-        2313,2314,2315,2316,2331,2417,2418
-    ]
-
-    # Códigos rentas no gravadas (solo para impuesto)
-    CODIGOS_RENTAS_NO_GRAVADAS = [
-        2204,2301,2302,2303,2304,2305,2306,2308,2311,2309,2310,2312,
-        2313,2314,2315,2316,2331,2417,2418
-    ]
-
-    # Conceptos con afecto AFP
-    CONCEPTOS_AFECTO_AFP = {"afp", "isapre", "mutual", "sis", "trabajoPesaEmpl"}
-    # Conceptos con afecto CES
-    CONCEPTOS_AFECTO_CES = {"cesEmpleado", "cesAporteSol", "cesAporteCi"}
-
-    # Columnas de conceptos presentes en el archivo
+    # Columnas de conceptos (las que están en equiv_dict)
     cols_concepto = [c for c in df.columns if c in equiv_dict]
-    # Conceptos únicos a generar (en orden de aparición)
-    conceptos_unicos = list(dict.fromkeys([equiv_dict[c] for c in cols_concepto]))
 
     for _, row in df.iterrows():
-        rut             = str(row.get("Id empleado", "")).strip()
-        empresa_entrada = str(row.get("Id de empresa", "")).strip()
-        dias_trabajados = safe_num(row.get("Nro días trabajados", 0))
-        dias_licencia   = safe_num(row.get("Nro días de licencia médica", 0))
-        dias_vacaciones = safe_num(row.get("Nro días de vacaciones en el mes(1117)", 0))
-        sueldo          = safe_num(row.get("Sueldo(2101)", 0))
-        rebaja_zona     = safe_num(row.get("Rebaja zona extrema DL 889 (3167)", 0))
-        numero_contrato = safe_num(row.get("Número de contrato", 1)) or 1
-        jornada         = row.get("jornada", "C") or "C"
-
-        # Institución directamente desde el archivo
-        afp_empleado    = str(row.get("afp", "")).strip()
-        isapre_empleado = str(row.get("isapre", "")).strip()
-        mutual_empleado = str(row.get("Mutual", "")).strip()
-        ccaf_empleado   = str(row.get("Ccaf", "")).strip()
+        rut = row.get("Rut trabajador (1101)", "")
 
         # Lookup empresa
-        empresa_salida = empresa_entrada
-        if empresa_entrada and not empresas.empty and "Nombre" in empresas.columns:
-            emp2 = empresas[empresas["Nombre"].astype(str).str.strip() == empresa_entrada]
-            if not emp2.empty:
-                empresa_salida = str(emp2.iloc[0].iloc[0]).strip()
+        empresa_salida = ""
+        if not empleados.empty and "Rut" in empleados.columns:
+            emp_row = empleados[empleados["Rut"] == rut]
+            if not emp_row.empty:
+                nombre_empresa = emp_row.iloc[0].get("Empresa", "")
+                if not empresas.empty and "Nombre" in empresas.columns:
+                    emp2 = empresas[empresas["Nombre"] == nombre_empresa]
+                    if not emp2.empty:
+                        empresa_salida = emp2.iloc[0].iloc[0]
 
-        # ── Base imponible (suma haberes afectos) ──
-        base_imponible = sum(
-            safe_num(row.get(COD_COL_REX.get(cod, ""), 0))
-            for cod in CODIGOS_BASE_IMPONIBLE
-            if COD_COL_REX.get(cod, "") in df.columns
-        )
+        # AFP e Isapre del empleado
+        afp_empleado = ""
+        isapre_empleado = ""
+        if not empleados.empty and "Rut" in empleados.columns:
+            emp_row = empleados[empleados["Rut"] == rut]
+            if not emp_row.empty:
+                afp_empleado = emp_row.iloc[0].get("AFP", "")
+                isapre_empleado = emp_row.iloc[0].get("Isapre", "")
 
-        # ── Afecto totalesEmpl (haberes afectos + exentos, sin tope) ──
-        afecto_totales_empl = sum(
-            safe_num(row.get(COD_COL_REX.get(cod, ""), 0))
-            for cod in CODIGOS_TOTALES_EMPL
-            if COD_COL_REX.get(cod, "") in df.columns
-        )
+        dias_trabajados = row.get("Nro días trabajados en el mes(1115)", 0) or 0
+        dias_licencia = row.get("Nro días de licencia médica en el mes(1116)", 0) or 0
+        dias_vacaciones = row.get("Nro días de vacaciones en el mes(1117)", 0) or 0
+        sueldo = row.get("Sueldo(2101)", 0) or 0
+        total_imponible = row.get("Total haberes imponibles y tributables(5210)", 0) or 0
+        col_1152 = row.get("Org. administrador ley 16.744(1152)", "")
+        col_3110 = row.get("Crédito social CCAF(3110)", 0) or 0
+        rebaja_zona = row.get("Rebaja zona extrema DL 889 (3167)", 0) or 0
 
-        # ── Rentas no gravadas (solo para impuesto) ──
-        rentas_no_gravadas = sum(
-            safe_num(row.get(COD_COL_REX.get(cod, ""), 0))
-            for cod in CODIGOS_RENTAS_NO_GRAVADAS
-            if COD_COL_REX.get(cod, "") in df.columns
-        )
+        monto_init = (sueldo / dias_trabajados * 30) if dias_trabajados > 0 else 0
 
-        # ── Descuentos para cálculo afecto impuesto ──
-        col_3143 = COD_COL_REX.get(3143, "")
-        col_3144 = COD_COL_REX.get(3144, "")
-        salud_trabajador = safe_num(row.get(col_3143, 0)) + safe_num(row.get(col_3144, 0))
-        salud_tope       = min(salud_trabajador, tope_salud) if tope_salud > 0 else salud_trabajador
-
-        desc_impuesto = (
-            safe_num(row.get(COD_COL_REX.get(3141, ""), 0)) +
-            safe_num(row.get(COD_COL_REX.get(3151, ""), 0)) +
-            safe_num(row.get(COD_COL_REX.get(3154, ""), 0)) +
-            safe_num(row.get(COD_COL_REX.get(3156, ""), 0)) +
-            salud_tope
-        )
-
-        # ── Rebaja por zona extrema (código 3167) ──
-        rebaja_zona = safe_num(row.get(COD_COL_REX.get(3167, ""), 0))
-
-        # ── Total rebajas por LLSS = min(3143+3144, tope_salud) + 3141 + 3151 + 3154 + 3156 ──
-        rebajas_llss = round(
-            salud_tope +
-            safe_num(row.get(COD_COL_REX.get(3141, ""), 0)) +
-            safe_num(row.get(COD_COL_REX.get(3151, ""), 0)) +
-            safe_num(row.get(COD_COL_REX.get(3154, ""), 0)) +
-            safe_num(row.get(COD_COL_REX.get(3156, ""), 0)),
-        2)
-
-        monto_init = round((sueldo / dias_trabajados) * 30, 0) if dias_trabajados > 0 else 0
-
-        # Conceptos ya generados (para evitar duplicados)
-        conceptos_ya_generados = set()
-
-        # Fila por cada concepto único
-        for id_concepto in conceptos_unicos:
-
-            # Licencia mes completo: solo conceptos permitidos
-            if dias_trabajados == 0 and id_concepto not in CONCEPTOS_LICENCIA_MES_COMPLETO:
-                continue
-
-            if id_concepto in conceptos_ya_generados:
-                continue
-
-            # Sumar todas las columnas que mapean a este concepto
-            cols_del_concepto = [c for c in concepto_a_cols.get(id_concepto, []) if c in df.columns]
-            monto = sum(safe_num(row.get(c, 0)) for c in cols_del_concepto)
-
-            # Saltar si monto 0 excepto conceptos que siempre se generan
-            if monto == 0 and id_concepto not in {"cesEmpleado", "impuesto"} \
-               and not (dias_trabajados == 0 and id_concepto in CONCEPTOS_LICENCIA_MES_COMPLETO):
-                continue
+        # Fila por cada concepto
+        for col_csv in cols_concepto:
+            monto = row.get(col_csv, 0) or 0
+            id_concepto = equiv_dict.get(col_csv, "")
 
             # Id de institución
             id_institucion = ""
@@ -812,24 +602,24 @@ def generar_filas_salida(df, fecha_proceso, refs):
             elif id_concepto in GRUPOS_ISAPRE:
                 id_institucion = isapre_empleado
             elif id_concepto in GRUPOS_MUTUAL:
-                id_institucion = mutual_empleado
-            elif id_concepto in GRUPOS_CCAF:
-                if not cajas.empty and "nombre_ccaf" in cajas.columns and "id_ccaf" in cajas.columns:
-                    c = cajas[cajas["nombre_ccaf"].astype(str).str.strip() == ccaf_empleado]
-                    if not c.empty:
+                if not mutuales.empty and "cod_lre" in mutuales.columns and "id_mutual" in mutuales.columns:
+                    m = mutuales[mutuales["cod_lre"] == col_1152]
+                    if not m.empty:
+                        id_institucion = m.iloc[0]["id_mutual"]
+            elif id_concepto in GRUPOS_CCAF and col_3110 != 0:
+                if not cajas.empty:
+                    c = cajas[cajas.iloc[:, 0] == col_3110]
+                    if not c.empty and "id_ccaf" in cajas.columns:
                         id_institucion = c.iloc[0]["id_ccaf"]
 
-            # ── Afecto ──
-            if id_concepto in CONCEPTOS_AFECTO_AFP:
-                afecto = min(base_imponible, tope_afp) if tope_afp > 0 else base_imponible
-            elif id_concepto in CONCEPTOS_AFECTO_CES:
-                afecto = min(base_imponible, tope_ces) if tope_ces > 0 else base_imponible
-            elif id_concepto == "impuesto":
-                afecto = round(base_imponible - desc_impuesto, 2)
+            # Afecto
+            afecto = ""
+            if id_concepto in GRUPOS_AFP_MUTUAL_AFECTO:
+                afecto = min(total_imponible, tope_afp) if tope_afp > 0 else total_imponible
+            elif id_concepto in GRUPOS_CES_AFECTO:
+                afecto = min(total_imponible, tope_ces) if tope_ces > 0 else total_imponible
             elif id_concepto == "totalesEmpl":
-                afecto = round(afecto_totales_empl, 2)
-            else:
-                afecto = 0
+                afecto = total_imponible
 
             # Cotización de jubilación
             cot_jubilacion = 0
@@ -838,72 +628,74 @@ def generar_filas_salida(df, fecha_proceso, refs):
                 if not cot_afp.empty and "id_afp_hist" in cot_afp.columns:
                     r = cot_afp[cot_afp["id_afp_hist"] == key_afp]
                     if not r.empty:
-                        cot_jubilacion = safe_num(r.iloc[0].get("cot_hist_afp", 0)) * 100
+                        cot_jubilacion = r.iloc[0].get("cot_hist_afp", 0)
             elif id_concepto == "sis":
                 key_sis = f"{fecha_proceso}{id_institucion}"
                 if not cot_afp.empty and "id_afp_hist" in cot_afp.columns:
                     r = cot_afp[cot_afp["id_afp_hist"] == key_sis]
                     if not r.empty:
-                        cot_jubilacion = safe_num(r.iloc[0].get("sis_hist", 0)) * 100
+                        cot_jubilacion = r.iloc[0].get("sis_hist", 0)
             elif id_concepto == "cesEmpleado":
                 cot_jubilacion = 0.6
             elif id_concepto == "isapre":
                 cot_jubilacion = monto
             elif id_concepto == "mutual":
-                cot_jubilacion = safe_num(row.get("% mutual", 0))
+                if not mutuales.empty and "cod_lre" in mutuales.columns and "nombre_mutual" in mutuales.columns:
+                    m = mutuales[mutuales["cod_lre"] == col_1152]
+                    if not m.empty:
+                        nombre_mutual = m.iloc[0]["nombre_mutual"]
+                        if not empresas.empty and "Mutual" in empresas.columns and "Cotización Mutual" in empresas.columns:
+                            e = empresas[empresas["Mutual"] == nombre_mutual]
+                            if not e.empty:
+                                cot_jubilacion = e.iloc[0]["Cotización Mutual"]
             elif id_concepto == "licenciaDias":
                 cot_jubilacion = dias_licencia
-
-            conceptos_ya_generados.add(id_concepto)
+            elif id_concepto == "totalesEmpl":
+                cot_jubilacion = min(total_imponible, tope_afp) if tope_afp > 0 else total_imponible
 
             filas.append({
-                "Fecha de proceso":          fecha_proceso,
-                "Id empleado":               rut,
-                "Número de contrato":        int(numero_contrato),
-                "Id del concepto":           id_concepto,
-                "Monto del concepto":        monto,
-                "Afecto":                    afecto,
-                "Id de institución":         id_institucion,
-                "Cotización de jubilación":  cot_jubilacion,
-                "Días de licencias":         dias_licencia,
-                "Días trabajados":           30 - dias_licencia,
-                "Fecha de aplicación":       "x",
-                "Empresa":                   empresa_salida,
-                "Total de rebajas por LLSS": rebajas_llss if id_concepto == "impuesto" else 0,
-                "Rentas no gravadas":        rentas_no_gravadas if id_concepto == "impuesto" else 0,
-                "Rebaja por zona extrema":   rebaja_zona if id_concepto == "impuesto" else 0,
-                "Jornada":                   jornada,
-                "Días de vacaciones":        dias_vacaciones,
-                "Monto Init":                monto_init,
-                "Fase":                      1,
+                "Fecha de proceso": fecha_proceso,
+                "Id empleado": rut,
+                "Número de contrato": 1,
+                "Id del concepto": id_concepto,
+                "Monto del concepto": monto,
+                "Afecto": afecto,
+                "Id de institución": id_institucion,
+                "Cotización de jubilación": cot_jubilacion,
+                "Días de licencias": dias_licencia,
+                "Días trabajados": dias_vacaciones,
+                "Fecha de aplicación": "x",
+                "Empresa": empresa_salida,
+                "Total de rebajas por L": rebaja_zona,
+                "Jornada": "C",
+                "Fase": 1,
+                "Días de vacaciones": dias_vacaciones,
+                "Monto Init": monto_init,
             })
-        if dias_licencia > 0 and "licenciaDias" not in conceptos_ya_generados:
-            dias_trab_lic = 30 - dias_licencia
-            monto_init_lic = round((sueldo / dias_trab_lic) * 30, 0) if dias_trab_lic > 0 else 0
+
+        # Fila adicional licenciaDias si aplica
+        if dias_licencia > 0:
             filas.append({
-                "Fecha de proceso":          fecha_proceso,
-                "Id empleado":               rut,
-                "Número de contrato":        int(numero_contrato),
-                "Id del concepto":           "licenciaDias",
-                "Monto del concepto":        dias_licencia,
-                "Afecto":                    0,
-                "Id de institución":         "",
-                "Cotización de jubilación":  dias_licencia,
-                "Días de licencias":         dias_licencia,
-                "Días trabajados":           dias_trab_lic,
-                "Fecha de aplicación":       "x",
-                "Empresa":                   empresa_salida,
-                "Total de rebajas por LLSS": 0,
-                "Rentas no gravadas":        0,
-                "Rebaja por zona extrema":   0,
-                "Jornada":                   jornada,
-                "Días de vacaciones":        dias_vacaciones,
-                "Monto Init":                monto_init_lic,
-                "Fase":                      1,
+                "Fecha de proceso": fecha_proceso,
+                "Id empleado": rut,
+                "Número de contrato": 1,
+                "Id del concepto": "licenciaDias",
+                "Monto del concepto": dias_licencia,
+                "Afecto": "",
+                "Id de institución": "",
+                "Cotización de jubilación": dias_licencia,
+                "Días de licencias": dias_licencia,
+                "Días trabajados": dias_vacaciones,
+                "Fecha de aplicación": "x",
+                "Empresa": empresa_salida,
+                "Total de rebajas por L": rebaja_zona,
+                "Jornada": "C",
+                "Fase": 1,
+                "Días de vacaciones": dias_vacaciones,
+                "Monto Init": monto_init,
             })
 
     return pd.DataFrame(filas)
-
 
 def generar_excel(df_salida):
     """Genera el Excel de salida con formato."""
@@ -955,7 +747,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ── NAVEGACIÓN PRINCIPAL ──
-nav_migracion, nav_dt = st.tabs(["📂 Migración desde archivo base LRE de Rex", "🏛️ Migración archivo descargado desde DT"])
+nav_migracion, nav_dt, nav_params = st.tabs(["📂 Migración DDJJ Previred", "🏛️ Migración DT", "⚙️ Parámetros Mensuales"])
 
 # Cargar referencias compartidas (disponibles para todos los tabs)
 refs, errores_refs = cargar_referencias()
@@ -963,134 +755,160 @@ if errores_refs:
     st.markdown(f'<div class="alert-warning">⚠️ Archivos de referencia no encontrados en <b>/data</b>: {", ".join(errores_refs)}</div>', unsafe_allow_html=True)
 
 with nav_migracion:
-    st.markdown('<div class="section-title">📂 Migración desde archivo base LRE de Rex</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-sub">Sube el archivo Excel exportado desde Rex+ para generar el archivo de salida listo para importar.</div>', unsafe_allow_html=True)
-
+    st.markdown('<div class="section-title">📂 Migración DDJJ Previred</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-sub">Sube uno o más archivos CSV del mismo RUT empresa para generar el archivo de salida en Excel.</div>', unsafe_allow_html=True)
     col1, col2, col3 = st.columns(3)
     with col1:
         st.markdown("""
         <div class="step-card">
             <div class="step-label">PASO 1</div>
-            <div class="step-title">Subir archivo base LRE</div>
-            <div class="step-desc">Archivo Excel exportado desde Rex+ con las liquidaciones del período.</div>
+            <div class="step-title">Subir archivos CSV</div>
+            <div class="step-desc">Uno o más archivos del mismo RUT empresa. Ej: 76247825-0_202601.csv</div>
         </div>""", unsafe_allow_html=True)
     with col2:
         st.markdown("""
         <div class="step-card">
             <div class="step-label">PASO 2</div>
-            <div class="step-title">Subir listado de empleados</div>
-            <div class="step-desc">Archivo xlsx con los empleados del período a procesar.</div>
+            <div class="step-title">Validación automática</div>
+            <div class="step-desc">Se verifican las cuadraturas contables de cada registro.</div>
         </div>""", unsafe_allow_html=True)
     with col3:
         st.markdown("""
         <div class="step-card">
             <div class="step-label">PASO 3</div>
             <div class="step-title">Descargar Excel</div>
-            <div class="step-desc">Se genera el archivo de salida listo para importar en Rex+.</div>
+            <div class="step-desc">Si todo cuadra, se genera el archivo de salida listo para importar.</div>
         </div>""", unsafe_allow_html=True)
 
     st.markdown('<hr class="rex-divider">', unsafe_allow_html=True)
 
-    # ── Uploaders en 3 columnas ──
-    col_up1, col_up2, col_up3 = st.columns(3)
+    # Upload CSV
+    st.markdown("### 📤 Subir archivos CSV")
+    archivos = st.file_uploader(
+        "Selecciona uno o más archivos CSV de Previred",
+        type=["csv"],
+        accept_multiple_files=True,
+        help="Los archivos deben corresponder al mismo RUT empresa (primeros 10 caracteres del nombre)"
+    )
 
-    with col_up1:
-        st.markdown("#### 📤 Archivo base LRE de Rex+")
-        archivo_lre = st.file_uploader(
-            "Selecciona el archivo Excel exportado desde Rex+",
-            type=["xlsx"],
-            accept_multiple_files=False,
-            key="lre_upload"
-        )
-        if archivo_lre:
-            st.markdown(f'<div class="alert-success">✅ <b>{archivo_lre.name}</b></div>', unsafe_allow_html=True)
+    # Upload listado_empleados
+    st.markdown("### 👥 Listado de empleados del período")
+    archivo_empleados = st.file_uploader(
+        "Sube el archivo listado_empleados.xlsx correspondiente al período a procesar",
+        type=["xlsx"],
+        accept_multiple_files=False,
+        help="Este archivo cambia en cada proceso. Debe contener: Rut, Empresa, AFP, Isapre"
+    )
+    if archivo_empleados:
+        st.markdown(f'<div class="alert-success">✅ Listado de empleados cargado: <b>{archivo_empleados.name}</b></div>', unsafe_allow_html=True)
+    else:
+        st.markdown('<div class="alert-warning">⚠️ Debes subir el listado de empleados del período para ejecutar el proceso.</div>', unsafe_allow_html=True)
 
-    with col_up2:
-        st.markdown("#### 👥 Listado de empleados del período")
-        archivo_empleados = st.file_uploader(
-            "Sube el archivo listado_empleados.xlsx del período",
-            type=["xlsx"],
-            accept_multiple_files=False,
-            key="emp_upload",
-            help="Este archivo cambia en cada proceso."
-        )
-        if archivo_empleados:
-            st.markdown(f'<div class="alert-success">✅ <b>{archivo_empleados.name}</b></div>', unsafe_allow_html=True)
+    if archivos:
+        st.markdown(f'<div class="alert-success">✅ {len(archivos)} archivo(s) cargado(s): {", ".join([f.name for f in archivos])}</div>', unsafe_allow_html=True)
+
+        valido, prefijos = validar_archivos(archivos)
+        if not valido:
+            st.markdown(f"""
+            <div class="alert-error">
+                ❌ <b>Los archivos no corresponden a la misma empresa.</b><br>
+                Se detectaron distintos RUT empresa: {", ".join(set(prefijos))}<br>
+                Por favor sube solo archivos del mismo RUT empresa.
+            </div>""", unsafe_allow_html=True)
+            st.stop()
+
+        if not archivo_empleados:
+            st.info("Sube el listado de empleados del período para habilitar el proceso.")
         else:
-            st.markdown('<div class="alert-warning">⚠️ Requerido para ejecutar el proceso.</div>', unsafe_allow_html=True)
+            if st.button("▶ Ejecutar validaciones"):
+                todos_errores = []
+                dfs = []
 
-    with col_up3:
-        st.markdown("#### 📅 Parámetros mensuales")
-        archivo_params_lre = st.file_uploader(
-            "Sube el archivo parametrosMesuales.xlsx del período",
-            type=["xlsx"],
-            accept_multiple_files=False,
-            key="params_lre_upload",
-            help="Archivo con los parámetros legales del mes a procesar."
-        )
-        if archivo_params_lre:
-            st.markdown(f'<div class="alert-success">✅ <b>{archivo_params_lre.name}</b></div>', unsafe_allow_html=True)
-        else:
-            st.markdown('<div class="alert-warning">⚠️ Requerido para calcular topes AFP y cesantía.</div>', unsafe_allow_html=True)
+                refs["listado_empleados"] = pd.read_excel(archivo_empleados)
 
-    if archivo_lre and archivo_empleados and archivo_params_lre:
-        if st.button("▶ Generar archivo de salida"):
-            with st.spinner("Procesando archivo..."):
-                try:
-                    archivo_lre.seek(0)
-                    df = pd.read_excel(archivo_lre)
-                    archivo_empleados.seek(0)
-                    refs["listado_empleados"] = pd.read_excel(archivo_empleados)
-                    archivo_params_lre.seek(0)
-                    refs["parametros"] = pd.read_excel(archivo_params_lre, sheet_name="Hoja1", dtype={"mes_Proc": str})
+                with st.spinner("Procesando archivos..."):
+                    for archivo in archivos:
+                        for enc in ("utf-8", "latin-1", "utf-8-sig", "cp1252"):
+                            try:
+                                archivo.seek(0)
+                                df = pd.read_csv(archivo, encoding=enc, sep=None, engine="python")
+                                break
+                            except (UnicodeDecodeError, Exception):
+                                continue
+                        else:
+                            st.error(f"❌ No se pudo leer {archivo.name}. Verifica que sea un CSV válido.")
+                            st.stop()
+                        df = calcular_totales(df)
+                        errores = validar_cuadraturas(df, archivo.name)
+                        todos_errores.extend(errores)
+                        fecha_proceso = extraer_fecha_proceso(archivo.name)
+                        df["_fecha_proceso"] = fecha_proceso
+                        dfs.append(df)
 
-                    # Extraer fecha de proceso
-                    if "Fecha de proceso" in df.columns:
-                        fecha_proceso = str(df["Fecha de proceso"].iloc[0])[:7]
-                    else:
-                        fecha_proceso = datetime.now().strftime("%Y-%m")
+                st.markdown('<hr class="rex-divider">', unsafe_allow_html=True)
+                st.markdown("### 🔍 Resultado de validaciones")
 
-                    # ── Validación: 5501 = haberes - descuentos ──
-                    df_errores_val, hay_errores = validar_liquidez_rex(df)
+                if todos_errores:
+                    st.markdown(f"""
+                    <div class="alert-error">
+                        ❌ <b>No se puede generar el archivo de salida.</b><br>
+                        Se encontraron <b>{len(todos_errores)} error(es)</b> de validación en los registros procesados.
+                    </div>""", unsafe_allow_html=True)
 
-                    if hay_errores:
-                        st.markdown(f"""
-                        <div class="alert-error">
-                            ❌ <b>Validación fallida.</b> Se encontraron <b>{len(df_errores_val)} trabajador(es)</b>
-                            donde el Total líquido (5501) no coincide con la diferencia entre haberes y descuentos.<br>
-                            No se generó el archivo de salida. Descarga el log para revisar las diferencias.
-                        </div>""", unsafe_allow_html=True)
-
-                        log_buf = io.BytesIO()
-                        df_errores_val.to_excel(log_buf, index=False, sheet_name="Errores validación")
-                        log_buf.seek(0)
+                    with st.expander("📋 Ver log de errores detallado"):
+                        df_errores = pd.DataFrame(todos_errores)
+                        st.dataframe(df_errores, use_container_width=True, hide_index=True)
+                        csv_log = df_errores.to_csv(index=False).encode("utf-8")
                         st.download_button(
-                            label="⬇️ Descargar log de errores (.xlsx)",
-                            data=log_buf,
-                            file_name=f"log_validacion_{fecha_proceso}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                            label="⬇️ Descargar log de errores (.csv)",
+                            data=csv_log,
+                            file_name=f"log_errores_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                            mime="text/csv"
+                        )
+                else:
+                    st.markdown("""
+                    <div class="alert-success">
+                        ✅ <b>Todas las validaciones se cumplieron correctamente.</b><br>
+                        Los registros de todos los archivos cuadran sin diferencias.
+                    </div>""", unsafe_allow_html=True)
+
+                    st.markdown("#### ¿Desea generar el archivo de salida?")
+                    col_a, col_b, col_c, _ = st.columns([1, 1, 1, 4])
+                    with col_a:
+                        aceptar = st.button("✅ Aceptar")
+                    with col_b:
+                        cancelar = st.button("✖ Cancelar")
+                    with col_c:
+                        salir = st.button("🚪 Salir")
+
+                    if salir:
+                        st.markdown('<div class="alert-warning">La sesión ha sido cerrada. Puedes cerrar esta ventana.</div>', unsafe_allow_html=True)
+                        st.stop()
+                    if cancelar:
+                        st.markdown('<div class="alert-warning">Operación cancelada. Puedes subir nuevos archivos.</div>', unsafe_allow_html=True)
+                        st.stop()
+                    if aceptar:
+                        with st.spinner("Generando archivo de salida..."):
+                            df_combined = pd.concat(dfs, ignore_index=True)
+                            filas_salida = []
+                            for _, grupo in df_combined.groupby("_fecha_proceso"):
+                                fp = grupo["_fecha_proceso"].iloc[0]
+                                df_out = generar_filas_salida(grupo, fp, refs)
+                                filas_salida.append(df_out)
+                            df_final = pd.concat(filas_salida, ignore_index=True) if filas_salida else pd.DataFrame()
+                            excel_bytes = generar_excel(df_final)
+                        st.markdown('<div class="alert-success">✅ Archivo generado exitosamente.</div>', unsafe_allow_html=True)
+                        nombre_empresa = archivos[0].name[:10]
+                        st.download_button(
+                            label="⬇️ Descargar archivo de salida (.xlsx)",
+                            data=excel_bytes,
+                            file_name=f"migracion_{nombre_empresa}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                         )
-                    else:
-                        st.markdown('<div class="alert-success">✅ <b>Validación exitosa.</b> Todos los registros cuadran. Generando archivo de salida...</div>', unsafe_allow_html=True)
-
-                        df_final = generar_filas_salida(df, fecha_proceso, refs)
-
-                        if df_final.empty:
-                            st.markdown('<div class="alert-error">❌ El archivo de salida quedó vacío. Columnas detectadas en el archivo de entrada:</div>', unsafe_allow_html=True)
-                            st.write(list(df.columns))
-                        else:
-                            excel_bytes = generar_excel(df_final)
-                            st.markdown(f'<div class="alert-success">✅ Archivo generado: <b>{len(df_final)} filas</b>.</div>', unsafe_allow_html=True)
-                            st.download_button(
-                                label="⬇️ Descargar archivo de salida (.xlsx)",
-                                data=excel_bytes,
-                                file_name=f"migracion_lre_{fecha_proceso}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
-                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                            )
-                except Exception as e:
-                    import traceback
-                    st.markdown(f'<div class="alert-error">❌ Error: <b>{e}</b></div>', unsafe_allow_html=True)
-                    st.code(traceback.format_exc())
 
 with nav_dt:
     render_modulo_dt(refs)
+
+with nav_params:
+    render_parametros()
+
