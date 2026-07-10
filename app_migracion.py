@@ -212,8 +212,7 @@ COLS_DESCUENTOS_LEGALES = [
     "Mayor retención de impuestos solicitada por el trabajador(3163)",
     "Impuesto retenido por reliquidación remun. devengadas otros períodos(3164)",
     "Diferencia impuesto reliquidación remun. devengadas en este período(3165)",
-    "Retención préstamo clase media 2020 (Ley 21.252) (3166)",
-    "Rebaja zona extrema DL 889 (3167)"
+    "Retención préstamo clase media 2020 (Ley 21.252) (3166)"
 ]
 
 COLS_OTROS_DESCUENTOS = [
