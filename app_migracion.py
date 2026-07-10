@@ -451,6 +451,17 @@ def get_col(df, col, default=0):
         return df[col].fillna(default)
     return pd.Series(default, index=df.index)
 
+def validar_estructura(df, columnas_requeridas):
+    """
+    Verifica que un DataFrame tenga las columnas requeridas, sin importar
+    el nombre del archivo subido. Retorna (ok, columnas_faltantes).
+    """
+    if df is None or df.empty:
+        return False, columnas_requeridas
+    faltantes = [c for c in columnas_requeridas if c not in df.columns]
+    return len(faltantes) == 0, faltantes
+
+
 def validar_archivos(archivos_subidos):
     """Valida que todos los archivos sean de la misma empresa."""
     nombres = [f.name for f in archivos_subidos]
@@ -781,27 +792,30 @@ with nav_migracion:
 
     st.markdown('<hr class="rex-divider">', unsafe_allow_html=True)
 
-    # Upload CSV
-    st.markdown("### 📤 Subir archivos CSV")
-    archivos = st.file_uploader(
-        "Selecciona uno o más archivos CSV de Previred",
-        type=["csv"],
-        accept_multiple_files=True,
-        help="Los archivos deben corresponder al mismo RUT empresa (primeros 10 caracteres del nombre)"
-    )
+    # Uploaders lado a lado
+    col_up1, col_up2 = st.columns(2)
 
-    # Upload listado_empleados
-    st.markdown("### 👥 Listado de empleados del período")
-    archivo_empleados = st.file_uploader(
-        "Sube el archivo listado_empleados.xlsx correspondiente al período a procesar",
-        type=["xlsx"],
-        accept_multiple_files=False,
-        help="Este archivo cambia en cada proceso. Debe contener: Rut, Empresa, AFP, Isapre"
-    )
-    if archivo_empleados:
-        st.markdown(f'<div class="alert-success">✅ Listado de empleados cargado: <b>{archivo_empleados.name}</b></div>', unsafe_allow_html=True)
-    else:
-        st.markdown('<div class="alert-warning">⚠️ Debes subir el listado de empleados del período para ejecutar el proceso.</div>', unsafe_allow_html=True)
+    with col_up1:
+        st.markdown("#### 📤 Subir archivos CSV")
+        archivos = st.file_uploader(
+            "Selecciona uno o más archivos CSV de Previred",
+            type=["csv"],
+            accept_multiple_files=True,
+            help="Los archivos deben corresponder al mismo RUT empresa (primeros 10 caracteres del nombre)"
+        )
+
+    with col_up2:
+        st.markdown("#### 👥 Listado de empleados del período")
+        archivo_empleados = st.file_uploader(
+            "Sube el archivo listado_empleados.xlsx correspondiente al período a procesar",
+            type=["xlsx"],
+            accept_multiple_files=False,
+            help="Este archivo cambia en cada proceso. Debe contener: Rut, Empresa, AFP, Isapre"
+        )
+        if archivo_empleados:
+            st.markdown(f'<div class="alert-success">✅ Listado de empleados cargado: <b>{archivo_empleados.name}</b></div>', unsafe_allow_html=True)
+        else:
+            st.markdown('<div class="alert-warning">⚠️ Debes subir el listado de empleados del período para ejecutar el proceso.</div>', unsafe_allow_html=True)
 
     if archivos:
         st.markdown(f'<div class="alert-success">✅ {len(archivos)} archivo(s) cargado(s): {", ".join([f.name for f in archivos])}</div>', unsafe_allow_html=True)
@@ -823,7 +837,17 @@ with nav_migracion:
                 todos_errores = []
                 dfs = []
 
-                refs["listado_empleados"] = pd.read_excel(archivo_empleados)
+                # Leer listado_empleados (encabezado real en la fila 2; fila 1 = título)
+                df_empleados_previred = pd.read_excel(archivo_empleados, header=1)
+                df_empleados_previred.columns = [str(c).strip() for c in df_empleados_previred.columns]
+
+                # ── Validar estructura de listado_empleados (independiente del nombre del archivo) ──
+                ok_emp, faltantes_emp = validar_estructura(df_empleados_previred, ["Rut", "Empresa", "AFP", "Isapre"])
+                if not ok_emp:
+                    st.markdown(f'<div class="alert-error">❌ <b>{archivo_empleados.name}</b>: Archivo no tiene la estructura esperada, corrija antes de continuar.</div>', unsafe_allow_html=True)
+                    st.stop()
+
+                refs["listado_empleados"] = df_empleados_previred
 
                 with st.spinner("Procesando archivos..."):
                     for archivo in archivos:
@@ -837,6 +861,15 @@ with nav_migracion:
                         else:
                             st.error(f"❌ No se pudo leer {archivo.name}. Verifica que sea un CSV válido.")
                             st.stop()
+
+                        # ── Validar estructura del CSV (independiente del nombre del archivo) ──
+                        if df.empty:
+                            st.markdown(f'<div class="alert-error">❌ <b>{archivo.name}</b>: Archivo no tiene la estructura esperada, corrija antes de continuar.</div>', unsafe_allow_html=True)
+                            st.stop()
+                        if "Rut trabajador (1101)" not in df.columns:
+                            st.markdown(f'<div class="alert-error">❌ <b>{archivo.name}</b>: Archivo no tiene la estructura esperada, corrija antes de continuar.</div>', unsafe_allow_html=True)
+                            st.stop()
+
                         df = calcular_totales(df)
                         errores = validar_cuadraturas(df, archivo.name)
                         todos_errores.extend(errores)

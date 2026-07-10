@@ -417,6 +417,17 @@ def cargar_referencias_dt(data_dir="data"):
 # ─────────────────────────────────────────────
 # CARGA LISTADO EMPLEADOS (con encabezado en fila 1)
 # ─────────────────────────────────────────────
+def validar_estructura(df, columnas_requeridas):
+    """
+    Verifica que un DataFrame tenga las columnas requeridas, sin importar
+    el nombre del archivo subido. Retorna (ok, columnas_faltantes).
+    """
+    if df is None or df.empty:
+        return False, columnas_requeridas
+    faltantes = [c for c in columnas_requeridas if c not in df.columns]
+    return len(faltantes) == 0, faltantes
+
+
 def cargar_empleados(file_obj):
     """
     Lee listado_empleados.xlsx que tiene encabezado real en la fila 1 (índice 0 es título).
@@ -1199,6 +1210,14 @@ def render_modulo_dt(refs_compartidas):
                 # Leer CSV DT
                 df_dt = leer_csv_dt(archivo_dt)
 
+                # ── Validar estructura del CSV DT (independiente del nombre del archivo) ──
+                if df_dt.empty:
+                    st.markdown(f'<div class="alert-error">❌ <b>{archivo_dt.name}</b>: Archivo no tiene la estructura esperada, corrija antes de continuar.</div>', unsafe_allow_html=True)
+                    st.stop()
+                if find_col(df_dt, COD_RUT) is None:
+                    st.markdown(f'<div class="alert-error">❌ <b>{archivo_dt.name}</b>: Archivo no tiene la estructura esperada, corrija antes de continuar.</div>', unsafe_allow_html=True)
+                    st.stop()
+
                 # Validar columnas contra LRE_COLUMNAS
                 diferencias_cols, desconocidas_cols = validar_columnas_lre(df_dt)
                 if diferencias_cols or desconocidas_cols:
@@ -1206,6 +1225,12 @@ def render_modulo_dt(refs_compartidas):
 
                 # Leer empleados
                 df_empleados = cargar_empleados(archivo_empleados)
+
+                # ── Validar estructura de listado_empleados ──
+                ok_emp, faltantes_emp = validar_estructura(df_empleados, ["Rut", "Empresa", "Contrato"])
+                if not ok_emp:
+                    st.markdown(f'<div class="alert-error">❌ <b>{archivo_empleados.name}</b>: Archivo no tiene la estructura esperada, corrija antes de continuar.</div>', unsafe_allow_html=True)
+                    st.stop()
 
                 # Leer empresas
                 df_empresas_periodo = pd.read_excel(archivo_empresas, header=1)
@@ -1215,8 +1240,20 @@ def render_modulo_dt(refs_compartidas):
                 if "Empresa" in df_empresas_periodo.columns:
                     df_empresas_periodo["Empresa"] = df_empresas_periodo["Empresa"].astype(str).str.strip()
 
+                # ── Validar estructura de listado_empresas ──
+                ok_emp2, faltantes_emp2 = validar_estructura(df_empresas_periodo, ["Nombre", "Empresa", "Cotización Mutual"])
+                if not ok_emp2:
+                    st.markdown(f'<div class="alert-error">❌ <b>{archivo_empresas.name}</b>: Archivo no tiene la estructura esperada, corrija antes de continuar.</div>', unsafe_allow_html=True)
+                    st.stop()
+
                 # Leer parámetros mensuales
                 df_params_periodo = pd.read_excel(archivo_params_dt)
+
+                # ── Validar estructura de parámetros mensuales ──
+                ok_par, faltantes_par = validar_estructura(df_params_periodo, ["mes_Proc", "topeSalud_pesos", "topeImp_pesos_afp", "topeCes_pesos", "sis"])
+                if not ok_par:
+                    st.markdown(f'<div class="alert-error">❌ <b>{archivo_params_dt.name}</b>: Archivo no tiene la estructura esperada, corrija antes de continuar.</div>', unsafe_allow_html=True)
+                    st.stop()
 
                 # Verificar que el mes existe en los parámetros
                 if "mes_Proc" in df_params_periodo.columns:
