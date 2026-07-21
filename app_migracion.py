@@ -509,6 +509,7 @@ def validar_cuadraturas(df, nombre_archivo):
             errores.append({
                 "Archivo": nombre_archivo,
                 "RUT": row.get("Rut trabajador (1101)", "N/D"),
+                "Fila en archivo": int(row.get("_fila_csv", row.name + 2)),
                 "Validación": codigo,
                 "Descripción": mensaje,
                 "Valor calculado": round(calc[row.name], 2),
@@ -527,6 +528,7 @@ def validar_cuadraturas(df, nombre_archivo):
             errores.append({
                 "Archivo": nombre_archivo,
                 "RUT": row.get("Rut trabajador (1101)", "N/D"),
+                "Fila en archivo": int(row.get("_fila_csv", row.name + 2)),
                 "Validación": "V6",
                 "Descripción": "(haberes_afectos + haberes_exentos) - (desc_legales + otros_desc) ≠ Total líquido(5501)",
                 "Valor calculado": round(liq_calc[row.name], 2),
@@ -855,6 +857,7 @@ with nav_migracion:
                             try:
                                 archivo.seek(0)
                                 df = pd.read_csv(archivo, encoding=enc, sep=None, engine="python")
+                                df["_fila_csv"] = range(2, len(df) + 2)
                                 break
                             except (UnicodeDecodeError, Exception):
                                 continue

@@ -261,6 +261,9 @@ def leer_csv_dt(file_obj):
     data_lines = [lines[header_idx]] + [l for i, l in enumerate(lines) if i != header_idx and l.strip()]
     content = "\n".join(data_lines)
     df = pd.read_csv(StringIO(content), sep=";", dtype=str)
+    # Registrar número de línea original (1-based) para cada fila de datos
+    original_line_numbers = [i + 1 for i, l in enumerate(lines) if i != header_idx and l.strip()]
+    df["_fila_original"] = original_line_numbers[:len(df)]
     for col in df.columns:
         converted = pd.to_numeric(df[col], errors="coerce")
         if converted.notna().sum() > df[col].notna().sum() * 0.5:
@@ -992,6 +995,7 @@ def validar_cuadraturas_dt(df, nombre_archivo):
             filas.append({
                 "Archivo":          nombre_archivo,
                 "RUT":              row.get(col_rut, "N/D"),
+                "Fila en archivo":  int(row.get("_fila_original", row.name + 2)),
                 "Validación":       codigo_val,
                 "Descripción":      descripcion,
                 "Columnas sumadas": detalle_cols_dt(row, codes_detalle),
@@ -1067,6 +1071,7 @@ def validar_cuadraturas_dt(df, nombre_archivo):
             errores.append({
                 "Archivo":          nombre_archivo,
                 "RUT":              row.get(col_rut, "N/D"),
+                "Fila en archivo":  int(row.get("_fila_original", row.name + 2)),
                 "Validación":       codigo_val,
                 "Descripción":      descripcion,
                 "Columnas sumadas": detalle_cols_dt(row, codes_detalle) if codes_detalle else "Ver descripción",
