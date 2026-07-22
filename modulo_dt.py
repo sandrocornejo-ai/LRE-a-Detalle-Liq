@@ -671,6 +671,7 @@ def generar_filas_dt(df, fecha_proceso, refs, df_empleados, df_empresas_externo=
     # ── Registro de problemas de contrato (para log) ──
     ruts_problema = {}   # rut → motivo
     filas = []
+    filas_sin_contrato = []
 
     for _, row in df.iterrows():
         rut = str(row.get(col_rut, "")).strip() if col_rut else ""
@@ -679,9 +680,16 @@ def generar_filas_dt(df, fecha_proceso, refs, df_empleados, df_empresas_externo=
         numero_contrato, empresa_codigo, ok, motivo = resolver_contrato(
             df_empleados, rut, fecha_proceso
         )
+        target = filas
         if not ok:
             ruts_problema[rut] = motivo
-            continue
+            emp_check = df_empleados[df_empleados["Rut"] == rut] if "Rut" in df_empleados.columns else pd.DataFrame()
+            if emp_check.empty:
+                continue  # RUT no encontrado en empleados → excluir completamente
+            # RUT con múltiples contratos no resolubles → segundo archivo con contrato en blanco
+            numero_contrato = ""
+            empresa_codigo = str(emp_check.iloc[0].get("Empresa", "")).strip()
+            target = filas_sin_contrato
 
         # ── Lookup empresa → busca por Nombre, trae código Empresa ──
         empresa_salida = empresa_codigo
@@ -825,7 +833,7 @@ def generar_filas_dt(df, fecha_proceso, refs, df_empleados, df_empresas_externo=
             # ── Total rebajas LLSS (solo si concepto = impuesto) ──
             rebajas_llss = total_rebajas_llss if id_concepto == "impuesto" else 0
 
-            filas.append({
+            target.append({
                 "Fecha de proceso":        fecha_proceso,
                 "Id empleado":             rut,
                 "Número de contrato":      numero_contrato,
@@ -849,7 +857,7 @@ def generar_filas_dt(df, fecha_proceso, refs, df_empleados, df_empresas_externo=
 
         # ── Fila adicional: licenciaDias (si días de licencia > 0) ──
         if dias_lic > 0:
-            filas.append({
+            target.append({
                 "Fecha de proceso":          fecha_proceso,
                 "Id empleado":               rut,
                 "Número de contrato":        numero_contrato,
@@ -876,7 +884,7 @@ def generar_filas_dt(df, fecha_proceso, refs, df_empleados, df_empresas_externo=
             df_empleados, list(ruts_problema.keys()), fecha_proceso, ruts_problema
         )
 
-    return pd.DataFrame(filas), df_log_contratos
+    return pd.DataFrame(filas), pd.DataFrame(filas_sin_contrato), df_log_contratos
 
 
 # ─────────────────────────────────────────────
@@ -1314,7 +1322,7 @@ def render_modulo_dt(refs_compartidas):
         # ── Generar archivo de salida ──
         with st.spinner("Generando archivo de salida..."):
             try:
-                df_salida, df_log_contratos = generar_filas_dt(df_dt, fecha_proceso, refs_dt, df_empleados, df_empresas_externo=df_empresas_periodo)
+                df_salida, df_salida_sin_contrato, df_log_contratos = generar_filas_dt(df_dt, fecha_proceso, refs_dt, df_empleados, df_empresas_externo=df_empresas_periodo)
             except Exception as e:
                 st.markdown(f'<div class="alert-error">❌ Error al generar el archivo de salida: <b>{e}</b></div>', unsafe_allow_html=True)
                 return
@@ -1360,3 +1368,17 @@ def render_modulo_dt(refs_compartidas):
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             key="dt_btn_descarga"
         )
+
+        if not df_salida_sin_contrato.empty:
+            st.markdown(f"""
+            <div class="alert-warning">
+                ⚠️ <b>{df_salida_sin_contrato["Id empleado"].nunique()} trabajador(es)</b> con contrato indeterminado fueron incluidos en un segundo archivo sin número de contrato.
+            </div>""", unsafe_allow_html=True)
+            excel_bytes_sc = generar_excel_dt(df_salida_sin_contrato)
+            st.download_button(
+                label="⬇️ Descargar registros sin contrato (.xlsx)",
+                data=excel_bytes_sc,
+                file_name=f"liquidaciones_dt_sin_contrato_{fecha_proceso}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                key="dt_btn_descarga_sc"
+            )
