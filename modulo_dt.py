@@ -482,6 +482,9 @@ def resolver_contrato(df_empleados, rut, fecha_proceso):
     # Múltiples contratos → resolver por intervalo de fechas
     try:
         fp_date = datetime.strptime(fecha_proceso, "%Y-%m")
+        # Último día del mes: un contrato aplica si inició antes o durante el mes
+        ultimo_dia = calendar.monthrange(fp_date.year, fp_date.month)[1]
+        fp_date_fin = fp_date.replace(day=ultimo_dia)
     except Exception:
         return "", "", False, "Fecha de proceso inválida"
 
@@ -507,8 +510,9 @@ def resolver_contrato(df_empleados, rut, fecha_proceso):
                 if not pd.isna(ft):
                     f_termino = ft
 
-            # Verificar si la fecha de proceso cae en el intervalo
-            if f_inicio <= fp_date:
+            # El contrato aplica si inició en cualquier día del mes (≤ último día)
+            # y no terminó antes del inicio del mes
+            if f_inicio <= fp_date_fin:
                 if f_termino is None or fp_date <= f_termino:
                     candidatos.append(cr)
         except Exception:
@@ -683,12 +687,15 @@ def generar_filas_dt(df, fecha_proceso, refs, df_empleados, df_empresas_externo=
         target = filas
         if not ok:
             ruts_problema[rut] = motivo
-            emp_check = df_empleados[df_empleados["Rut"] == rut] if "Rut" in df_empleados.columns else pd.DataFrame()
-            if emp_check.empty:
-                continue  # RUT no encontrado en empleados → excluir completamente
-            # RUT con múltiples contratos no resolubles → segundo archivo con contrato en blanco
+            # El archivo DT garantiza que el trabajador existió en el período procesado.
+            # Todos los casos sin contrato resuelto van al segundo archivo con número
+            # de contrato en blanco, sin excluir ningún registro.
             numero_contrato = ""
-            empresa_codigo = str(emp_check.iloc[0].get("Empresa", "")).strip()
+            empresa_codigo = ""
+            if "Rut" in df_empleados.columns:
+                emp_check = df_empleados[df_empleados["Rut"] == rut]
+                if not emp_check.empty:
+                    empresa_codigo = str(emp_check.iloc[0].get("Empresa", "")).strip()
             target = filas_sin_contrato
 
         # ── Lookup empresa → busca por Nombre, trae código Empresa ──
@@ -1331,7 +1338,7 @@ def render_modulo_dt(refs_compartidas):
         if not df_log_contratos.empty:
             st.markdown(f"""
             <div class="alert-warning">
-                ⚠️ <b>{len(df_log_contratos["Rut"].unique())} trabajador(es)</b> fueron excluidos por problemas en la resolución de contrato.<br>
+                ⚠️ <b>{len(df_log_contratos["Rut"].unique())} trabajador(es)</b> sin contrato resuelto fueron incluidos en un segundo archivo con contrato en blanco.<br>
                 Descarga el log para revisarlos.
             </div>""", unsafe_allow_html=True)
 
