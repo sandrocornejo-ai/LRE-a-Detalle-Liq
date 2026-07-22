@@ -687,15 +687,12 @@ def generar_filas_dt(df, fecha_proceso, refs, df_empleados, df_empresas_externo=
         target = filas
         if not ok:
             ruts_problema[rut] = motivo
-            # El archivo DT garantiza que el trabajador existió en el período procesado.
-            # Todos los casos sin contrato resuelto van al segundo archivo con número
-            # de contrato en blanco, sin excluir ningún registro.
+            emp_check = df_empleados[df_empleados["Rut"] == rut] if "Rut" in df_empleados.columns else pd.DataFrame()
+            if emp_check.empty:
+                continue  # RUT no encontrado en empleados → excluir completamente
+            # RUT encontrado pero contrato no resuelto → segundo archivo con contrato en blanco
             numero_contrato = ""
-            empresa_codigo = ""
-            if "Rut" in df_empleados.columns:
-                emp_check = df_empleados[df_empleados["Rut"] == rut]
-                if not emp_check.empty:
-                    empresa_codigo = str(emp_check.iloc[0].get("Empresa", "")).strip()
+            empresa_codigo = str(emp_check.iloc[0].get("Empresa", "")).strip()
             target = filas_sin_contrato
 
         # ── Lookup empresa → busca por Nombre, trae código Empresa ──
