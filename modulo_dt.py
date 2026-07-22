@@ -1222,167 +1222,196 @@ def render_modulo_dt(refs_compartidas):
 
     # ── Botón ejecutar ──
     if st.button("▶ Ejecutar proceso DT", key="dt_btn_ejecutar"):
-        with st.spinner("Procesando archivo..."):
-            try:
-                # Leer CSV DT
-                df_dt = leer_csv_dt(archivo_dt)
+        # Limpiar resultado previo al iniciar nuevo proceso
+        st.session_state.pop("dt_resultado", None)
 
-                # ── Validar estructura del CSV DT (independiente del nombre del archivo) ──
-                if df_dt.empty:
-                    st.markdown(f'<div class="alert-error">❌ <b>{archivo_dt.name}</b>: Archivo no tiene la estructura esperada, corrija antes de continuar.</div>', unsafe_allow_html=True)
+        barra = st.progress(0, text="Iniciando proceso...")
+        try:
+            # Paso 1: Leer CSV DT
+            barra.progress(10, text="Leyendo archivo DT...")
+            df_dt = leer_csv_dt(archivo_dt)
+
+            if df_dt.empty or find_col(df_dt, COD_RUT) is None:
+                barra.empty()
+                st.markdown(f'<div class="alert-error">❌ <b>{archivo_dt.name}</b>: Archivo no tiene la estructura esperada, corrija antes de continuar.</div>', unsafe_allow_html=True)
+                st.stop()
+
+            # Paso 2: Validar columnas LRE
+            barra.progress(20, text="Validando columnas LRE...")
+            diferencias_cols, desconocidas_cols = validar_columnas_lre(df_dt)
+            if diferencias_cols or desconocidas_cols:
+                mostrar_aviso_columnas(diferencias_cols, desconocidas_cols)
+
+            # Paso 3: Leer empleados
+            barra.progress(35, text="Cargando listado de empleados...")
+            df_empleados = cargar_empleados(archivo_empleados)
+            ok_emp, _ = validar_estructura(df_empleados, ["Rut", "Empresa", "Contrato"])
+            if not ok_emp:
+                barra.empty()
+                st.markdown(f'<div class="alert-error">❌ <b>{archivo_empleados.name}</b>: Archivo no tiene la estructura esperada, corrija antes de continuar.</div>', unsafe_allow_html=True)
+                st.stop()
+
+            # Paso 4: Leer empresas
+            barra.progress(50, text="Cargando listado de empresas...")
+            df_empresas_periodo = pd.read_excel(archivo_empresas, header=1)
+            df_empresas_periodo.columns = [str(c).strip() for c in df_empresas_periodo.columns]
+            if "Nombre" in df_empresas_periodo.columns:
+                df_empresas_periodo["Nombre"] = df_empresas_periodo["Nombre"].astype(str).str.strip()
+            if "Empresa" in df_empresas_periodo.columns:
+                df_empresas_periodo["Empresa"] = df_empresas_periodo["Empresa"].astype(str).str.strip()
+            ok_emp2, _ = validar_estructura(df_empresas_periodo, ["Nombre", "Empresa", "Cotización Mutual"])
+            if not ok_emp2:
+                barra.empty()
+                st.markdown(f'<div class="alert-error">❌ <b>{archivo_empresas.name}</b>: Archivo no tiene la estructura esperada, corrija antes de continuar.</div>', unsafe_allow_html=True)
+                st.stop()
+
+            # Paso 5: Leer parámetros mensuales
+            barra.progress(60, text="Cargando parámetros mensuales...")
+            df_params_periodo = pd.read_excel(archivo_params_dt)
+            ok_par, _ = validar_estructura(df_params_periodo, ["mes_Proc", "topeSalud_pesos", "topeImp_pesos_afp", "topeCes_pesos", "sis"])
+            if not ok_par:
+                barra.empty()
+                st.markdown(f'<div class="alert-error">❌ <b>{archivo_params_dt.name}</b>: Archivo no tiene la estructura esperada, corrija antes de continuar.</div>', unsafe_allow_html=True)
+                st.stop()
+            if "mes_Proc" in df_params_periodo.columns:
+                df_params_periodo["mes_Proc"] = df_params_periodo["mes_Proc"].astype(str).str.strip()
+                if fecha_proceso not in df_params_periodo["mes_Proc"].values:
+                    barra.empty()
+                    st.markdown(f'<div class="alert-error">❌ <b>No se encontraron parámetros para {fecha_proceso}</b> en el archivo subido.</div>', unsafe_allow_html=True)
                     st.stop()
-                if find_col(df_dt, COD_RUT) is None:
-                    st.markdown(f'<div class="alert-error">❌ <b>{archivo_dt.name}</b>: Archivo no tiene la estructura esperada, corrija antes de continuar.</div>', unsafe_allow_html=True)
-                    st.stop()
 
-                # Validar columnas contra LRE_COLUMNAS
-                diferencias_cols, desconocidas_cols = validar_columnas_lre(df_dt)
-                if diferencias_cols or desconocidas_cols:
-                    mostrar_aviso_columnas(diferencias_cols, desconocidas_cols)
+            refs_dt = dict(refs_compartidas)
+            refs_dt["listado_empresas"] = df_empresas_periodo
+            refs_dt["parametros"] = df_params_periodo
 
-                # Leer empleados
-                df_empleados = cargar_empleados(archivo_empleados)
+            # Paso 6: Validaciones de cuadratura
+            barra.progress(72, text="Ejecutando validaciones de cuadratura...")
+            errores_val = validar_cuadraturas_dt(df_dt, archivo_dt.name)
 
-                # ── Validar estructura de listado_empleados ──
-                ok_emp, faltantes_emp = validar_estructura(df_empleados, ["Rut", "Empresa", "Contrato"])
-                if not ok_emp:
-                    st.markdown(f'<div class="alert-error">❌ <b>{archivo_empleados.name}</b>: Archivo no tiene la estructura esperada, corrija antes de continuar.</div>', unsafe_allow_html=True)
-                    st.stop()
-
-                # Leer empresas
-                df_empresas_periodo = pd.read_excel(archivo_empresas, header=1)
-                df_empresas_periodo.columns = [str(c).strip() for c in df_empresas_periodo.columns]
-                if "Nombre" in df_empresas_periodo.columns:
-                    df_empresas_periodo["Nombre"] = df_empresas_periodo["Nombre"].astype(str).str.strip()
-                if "Empresa" in df_empresas_periodo.columns:
-                    df_empresas_periodo["Empresa"] = df_empresas_periodo["Empresa"].astype(str).str.strip()
-
-                # ── Validar estructura de listado_empresas ──
-                ok_emp2, faltantes_emp2 = validar_estructura(df_empresas_periodo, ["Nombre", "Empresa", "Cotización Mutual"])
-                if not ok_emp2:
-                    st.markdown(f'<div class="alert-error">❌ <b>{archivo_empresas.name}</b>: Archivo no tiene la estructura esperada, corrija antes de continuar.</div>', unsafe_allow_html=True)
-                    st.stop()
-
-                # Leer parámetros mensuales
-                df_params_periodo = pd.read_excel(archivo_params_dt)
-
-                # ── Validar estructura de parámetros mensuales ──
-                ok_par, faltantes_par = validar_estructura(df_params_periodo, ["mes_Proc", "topeSalud_pesos", "topeImp_pesos_afp", "topeCes_pesos", "sis"])
-                if not ok_par:
-                    st.markdown(f'<div class="alert-error">❌ <b>{archivo_params_dt.name}</b>: Archivo no tiene la estructura esperada, corrija antes de continuar.</div>', unsafe_allow_html=True)
-                    st.stop()
-
-                # Verificar que el mes existe en los parámetros
-                if "mes_Proc" in df_params_periodo.columns:
-                    df_params_periodo["mes_Proc"] = df_params_periodo["mes_Proc"].astype(str).str.strip()
-                    if fecha_proceso not in df_params_periodo["mes_Proc"].values:
-                        st.markdown(f'<div class="alert-error">❌ <b>No se encontraron parámetros para {fecha_proceso}</b> en el archivo subido.</div>', unsafe_allow_html=True)
-                        st.stop()
-
-                # Inyectar en refs
-                refs_dt = dict(refs_compartidas)
-                refs_dt["listado_empresas"] = df_empresas_periodo
-                refs_dt["parametros"] = df_params_periodo
-
-                # Ejecutar validaciones de cuadratura
-                errores_val = validar_cuadraturas_dt(df_dt, archivo_dt.name)
-
-            except Exception as e:
-                st.markdown(f'<div class="alert-error">❌ Error al leer los archivos: <b>{e}</b></div>', unsafe_allow_html=True)
+            if errores_val:
+                barra.empty()
+                st.markdown('<hr class="rex-divider">', unsafe_allow_html=True)
+                st.markdown("### 🔍 Resultado de validaciones")
+                st.markdown(f"""
+                <div class="alert-error">
+                    ❌ <b>No se puede generar el archivo de salida.</b><br>
+                    Se encontraron <b>{len(errores_val)} error(es)</b> de validación en los registros procesados.
+                </div>""", unsafe_allow_html=True)
+                with st.expander("📋 Ver log de errores detallado"):
+                    df_errores = pd.DataFrame(errores_val)
+                    st.dataframe(df_errores, use_container_width=True, hide_index=True)
+                    excel_log = io.BytesIO()
+                    df_errores.to_excel(excel_log, index=False, sheet_name="Log errores")
+                    excel_log.seek(0)
+                    st.download_button(
+                        label="⬇️ Descargar log de errores (.xlsx)",
+                        data=excel_log,
+                        file_name=f"log_errores_dt_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        key="dt_btn_log_errores"
+                    )
                 return
 
-        st.markdown('<hr class="rex-divider">', unsafe_allow_html=True)
-        st.markdown("### 🔍 Resultado de validaciones")
-
-        # ── Mostrar errores de validación si hay ──
-        if errores_val:
-            st.markdown(f"""
-            <div class="alert-error">
-                ❌ <b>No se puede generar el archivo de salida.</b><br>
-                Se encontraron <b>{len(errores_val)} error(es)</b> de validación en los registros procesados.
-            </div>""", unsafe_allow_html=True)
-
-            with st.expander("📋 Ver log de errores detallado"):
-                df_errores = pd.DataFrame(errores_val)
-                st.dataframe(df_errores, use_container_width=True, hide_index=True)
-                excel_log = io.BytesIO()
-                df_errores.to_excel(excel_log, index=False, sheet_name="Log errores")
-                excel_log.seek(0)
-                st.download_button(
-                    label="⬇️ Descargar log de errores (.xlsx)",
-                    data=excel_log,
-                    file_name=f"log_errores_dt_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    key="dt_btn_log_errores"
-                )
-            return
-
-        st.markdown("""
-        <div class="alert-success">
-            ✅ <b>Todas las validaciones se cumplieron correctamente.</b><br>
-            Los registros cuadran sin diferencias.
-        </div>""", unsafe_allow_html=True)
-
-        # ── Generar archivo de salida ──
-        with st.spinner("Generando archivo de salida..."):
-            try:
-                df_salida, df_salida_sin_contrato, df_log_contratos = generar_filas_dt(df_dt, fecha_proceso, refs_dt, df_empleados, df_empresas_externo=df_empresas_periodo)
-            except Exception as e:
-                st.markdown(f'<div class="alert-error">❌ Error al generar el archivo de salida: <b>{e}</b></div>', unsafe_allow_html=True)
-                return
-
-        # ── Mostrar log de problemas de contrato si hay ──
-        if not df_log_contratos.empty:
-            st.markdown(f"""
-            <div class="alert-warning">
-                ⚠️ <b>{len(df_log_contratos["Rut"].unique())} trabajador(es)</b> sin contrato resuelto fueron incluidos en un segundo archivo con contrato en blanco.<br>
-                Descarga el log para revisarlos.
-            </div>""", unsafe_allow_html=True)
-
-            with st.expander(f"👁️ Ver trabajadores excluidos por contrato ({len(df_log_contratos['Rut'].unique())})"):
-                st.dataframe(df_log_contratos, use_container_width=True, hide_index=True)
-
-            log_cont_bytes = generar_excel_log(df_log_contratos)
-            st.download_button(
-                label="⬇️ Descargar log_multiples_contratos.xlsx",
-                data=log_cont_bytes,
-                file_name=f"log_multiples_contratos_{fecha_proceso}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                key="dt_btn_log_contratos"
+            # Paso 7: Generar filas de salida
+            barra.progress(84, text="Generando registros de salida...")
+            df_salida, df_salida_sin_contrato, df_log_contratos = generar_filas_dt(
+                df_dt, fecha_proceso, refs_dt, df_empleados, df_empresas_externo=df_empresas_periodo
             )
 
-        if df_salida.empty:
-            st.markdown('<div class="alert-warning">⚠️ No se generaron registros. Verifica que el archivo y los parámetros sean correctos.</div>', unsafe_allow_html=True)
+            # Paso 8: Generar Excel
+            barra.progress(94, text="Generando archivos Excel...")
+            excel_bytes    = generar_excel_dt(df_salida) if not df_salida.empty else None
+            excel_bytes_sc = generar_excel_dt(df_salida_sin_contrato) if not df_salida_sin_contrato.empty else None
+            log_cont_bytes = generar_excel_log(df_log_contratos) if not df_log_contratos.empty else None
+
+            barra.progress(100, text="✅ Proceso completado")
+
+            # Guardar resultados en session_state para que persistan al descargar
+            st.session_state["dt_resultado"] = {
+                "excel_bytes":      excel_bytes,
+                "excel_bytes_sc":   excel_bytes_sc,
+                "log_cont_bytes":   log_cont_bytes,
+                "n_trabajadores":   df_salida["Id empleado"].nunique() if not df_salida.empty else 0,
+                "n_registros":      len(df_salida),
+                "n_sin_contrato":   df_salida_sin_contrato["Id empleado"].nunique() if not df_salida_sin_contrato.empty else 0,
+                "n_log_contratos":  len(df_log_contratos["Rut"].unique()) if not df_log_contratos.empty else 0,
+                "fecha_proceso":    fecha_proceso,
+                "df_preview":       df_salida.head(50) if not df_salida.empty else pd.DataFrame(),
+                "df_log_contratos": df_log_contratos,
+            }
+
+        except Exception as e:
+            barra.empty()
+            st.markdown(f'<div class="alert-error">❌ Error al procesar los archivos: <b>{e}</b></div>', unsafe_allow_html=True)
             return
 
+    # ── Sección de resultados — se renderiza desde session_state para sobrevivir reruns ──
+    if "dt_resultado" not in st.session_state:
+        return
+
+    res = st.session_state["dt_resultado"]
+    fp  = res["fecha_proceso"]
+
+    st.markdown('<hr class="rex-divider">', unsafe_allow_html=True)
+    st.markdown("### 🔍 Resultado de validaciones")
+    st.markdown("""
+    <div class="alert-success">
+        ✅ <b>Todas las validaciones se cumplieron correctamente.</b><br>
+        Los registros cuadran sin diferencias.
+    </div>""", unsafe_allow_html=True)
+
+    # ── Log de problemas de contrato ──
+    if res["n_log_contratos"] > 0:
         st.markdown(f"""
-        <div class="alert-success">
-            ✅ <b>Archivo generado exitosamente.</b><br>
-            Se procesaron <b>{df_salida["Id empleado"].nunique()} trabajadores</b> y se generaron <b>{len(df_salida)} registros</b>.
+        <div class="alert-warning">
+            ⚠️ <b>{res["n_log_contratos"]} trabajador(es)</b> sin contrato resuelto fueron incluidos en un segundo archivo con contrato en blanco.<br>
+            Descarga el log para revisarlos.
         </div>""", unsafe_allow_html=True)
-
-        with st.expander("👁️ Vista previa del archivo de salida"):
-            st.dataframe(df_salida.head(50), use_container_width=True, hide_index=True)
-
-        excel_bytes = generar_excel_dt(df_salida)
+        with st.expander(f"👁️ Ver trabajadores excluidos por contrato ({res['n_log_contratos']})"):
+            st.dataframe(res["df_log_contratos"], use_container_width=True, hide_index=True)
         st.download_button(
-            label="⬇️ Descargar archivo de salida (.xlsx)",
-            data=excel_bytes,
-            file_name=f"liquidaciones_dt_{fecha_proceso}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+            label="⬇️ Descargar log_multiples_contratos.xlsx",
+            data=res["log_cont_bytes"],
+            file_name=f"log_multiples_contratos_{fp}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            key="dt_btn_descarga"
+            key="dt_btn_log_contratos"
         )
 
-        if not df_salida_sin_contrato.empty:
+    if res["excel_bytes"] is None:
+        st.markdown('<div class="alert-warning">⚠️ No se generaron registros. Verifica que el archivo y los parámetros sean correctos.</div>', unsafe_allow_html=True)
+        return
+
+    st.markdown(f"""
+    <div class="alert-success">
+        ✅ <b>Archivo generado exitosamente.</b><br>
+        Se procesaron <b>{res["n_trabajadores"]} trabajadores</b> y se generaron <b>{res["n_registros"]} registros</b>.
+    </div>""", unsafe_allow_html=True)
+
+    with st.expander("👁️ Vista previa del archivo de salida"):
+        st.dataframe(res["df_preview"], use_container_width=True, hide_index=True)
+
+    # ── Botones de descarga lado a lado — ambos disponibles antes de cualquier rerun ──
+    col_dl1, col_dl2 = st.columns(2)
+    with col_dl1:
+        st.download_button(
+            label="⬇️ Descargar archivo de salida (.xlsx)",
+            data=res["excel_bytes"],
+            file_name=f"liquidaciones_dt_{fp}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            key="dt_btn_descarga",
+            use_container_width=True,
+        )
+    with col_dl2:
+        if res["excel_bytes_sc"] is not None:
             st.markdown(f"""
             <div class="alert-warning">
-                ⚠️ <b>{df_salida_sin_contrato["Id empleado"].nunique()} trabajador(es)</b> con contrato indeterminado fueron incluidos en un segundo archivo sin número de contrato.
+                ⚠️ <b>{res["n_sin_contrato"]} trabajador(es)</b> con contrato indeterminado incluidos en el segundo archivo.
             </div>""", unsafe_allow_html=True)
-            excel_bytes_sc = generar_excel_dt(df_salida_sin_contrato)
             st.download_button(
                 label="⬇️ Descargar registros sin contrato (.xlsx)",
-                data=excel_bytes_sc,
-                file_name=f"liquidaciones_dt_sin_contrato_{fecha_proceso}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                data=res["excel_bytes_sc"],
+                file_name=f"liquidaciones_dt_sin_contrato_{fp}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                key="dt_btn_descarga_sc"
+                key="dt_btn_descarga_sc",
+                use_container_width=True,
             )
