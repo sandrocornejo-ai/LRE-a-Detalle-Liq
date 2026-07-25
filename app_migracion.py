@@ -903,6 +903,12 @@ with nav_migracion:
     if archivos:
         st.markdown(f'<div class="alert-success">✅ {len(archivos)} archivo(s) cargado(s): {", ".join([f.name for f in archivos])}</div>', unsafe_allow_html=True)
 
+        # Resetear validación si el usuario cambia los archivos
+        archivos_key = tuple(f.name for f in archivos)
+        if st.session_state.get("_archivos_key") != archivos_key:
+            st.session_state["_validacion_ok"] = False
+            st.session_state["_archivos_key"] = archivos_key
+
         valido, prefijos = validar_archivos(archivos)
         if not valido:
             st.markdown(f"""
@@ -985,18 +991,32 @@ with nav_migracion:
                     df["_fecha_proceso"] = fecha_proceso
                     dfs.append(df)
 
+            # ── Persistir resultados en session_state ──
+            st.session_state["_validacion_ok"] = True
+            st.session_state["_todos_errores"] = todos_errores
+            st.session_state["_dfs"] = dfs
+            st.session_state["_refs_empl"] = refs.get("listado_empleados", pd.DataFrame())
+            st.session_state["_nombre_empresa"] = archivos[0].name[:10]
+
+        # ── Mostrar resultados (persiste entre reruns via session_state) ──
+        if st.session_state.get("_validacion_ok"):
             st.markdown('<hr class="rex-divider">', unsafe_allow_html=True)
             st.markdown("### 🔍 Resultado de validaciones")
 
-            if todos_errores:
+            _todos_errores = st.session_state["_todos_errores"]
+            _dfs            = st.session_state["_dfs"]
+            _refs_empl      = st.session_state["_refs_empl"]
+            _nombre_empresa = st.session_state["_nombre_empresa"]
+
+            if _todos_errores:
                 st.markdown(f"""
                 <div class="alert-error">
                     ❌ <b>No se puede generar el archivo de salida.</b><br>
-                    Se encontraron <b>{len(todos_errores)} error(es)</b> de validación en los registros procesados.
+                    Se encontraron <b>{len(_todos_errores)} error(es)</b> de validación en los registros procesados.
                 </div>""", unsafe_allow_html=True)
 
                 with st.expander("📋 Ver log de errores detallado"):
-                    df_errores = pd.DataFrame(todos_errores)
+                    df_errores = pd.DataFrame(_todos_errores)
                     st.dataframe(df_errores, use_container_width=True, hide_index=True)
                     csv_log = df_errores.to_csv(index=False).encode("utf-8")
                     st.download_button(
@@ -1022,14 +1042,17 @@ with nav_migracion:
                     salir = st.button("🚪 Salir")
 
                 if salir:
+                    st.session_state["_validacion_ok"] = False
                     st.markdown('<div class="alert-warning">La sesión ha sido cerrada. Puedes cerrar esta ventana.</div>', unsafe_allow_html=True)
                     st.stop()
                 if cancelar:
+                    st.session_state["_validacion_ok"] = False
                     st.markdown('<div class="alert-warning">Operación cancelada. Puedes subir nuevos archivos.</div>', unsafe_allow_html=True)
                     st.stop()
                 if aceptar:
+                    refs["listado_empleados"] = _refs_empl
                     with st.spinner("Generando archivo de salida..."):
-                        df_combined = pd.concat(dfs, ignore_index=True)
+                        df_combined = pd.concat(_dfs, ignore_index=True)
                         filas_salida = []
                         for _, grupo in df_combined.groupby("_fecha_proceso"):
                             fp = grupo["_fecha_proceso"].iloc[0]
@@ -1037,12 +1060,12 @@ with nav_migracion:
                             filas_salida.append(df_out)
                         df_final = pd.concat(filas_salida, ignore_index=True) if filas_salida else pd.DataFrame()
                         excel_bytes = generar_excel(df_final)
+                    st.session_state["_validacion_ok"] = False
                     st.markdown('<div class="alert-success">✅ Archivo generado exitosamente.</div>', unsafe_allow_html=True)
-                    nombre_empresa = archivos[0].name[:10]
                     st.download_button(
                         label="⬇️ Descargar archivo de salida (.xlsx)",
                         data=excel_bytes,
-                        file_name=f"migracion_{nombre_empresa}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                        file_name=f"migracion_{_nombre_empresa}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                     )
 
