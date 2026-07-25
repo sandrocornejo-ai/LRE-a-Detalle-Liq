@@ -237,6 +237,39 @@ COLS_APORTES_EMPLEADOR = [
     "APVC - Aporte Empleador(4157)"
 ]
 
+# Mapeo de columnas formato Rex+ → formato LRE esperado por el programa
+COLS_REXPLUS_TO_LRE = {
+    "Id empleado":                          "Rut trabajador (1101)",
+    "Nro días trabajados":                  "Nro días trabajados en el mes(1115)",
+    "Nro días de licencia médica":          "Nro días de licencia médica en el mes(1116)",
+    "Recargo 30% día domingo (Art. 38) (2107)":                                             "Recargo 30% día domingo(2107)",
+    "Remuneración variable pagada en vacaciones (Art 71) (cód 2108)":                       "Remun. variable pagada en vacaciones(2108)",
+    "Tratos (mensual) (cód 2112)":          "Tratos(2112)",
+    "Bonos u otras remuneraciones variables mensuales o superiores a un mes (cód 2113)":    "Bonos u otras remun. variables mensuales o superiores a un mes(2113)",
+    "Beneficios en especie constitutivos de remuneración (cód 2115)":                       "Beneficios en especie constitutivos de remun(2115)",
+    "Otras remuneraciones superiores a un mes (cód 2123)":                                  "Otras remuneraciones superiores a un mes(2123)",
+    "Pago por horas de trabajo sindical (cód 2124)":                                        "Pago por horas de trabajo sindical(2124)",
+    "Beca de estudio (Art. 17 N°18 LIR) (cód 2202)":                                       "Beca de estudio(2202)",
+    "Otros ingresos no constitutivos de renta (Art 17 N°29 LIR) (cód 2204)":               "Otros ingresos no constitutivos de renta(2204)",
+    "Viáticos totales mensual (Art 41) (cód 2303)":                                         "Viáticos(2303)",
+    "Gastos por causa del trabajo (Art 41 CdT) y gastos de representación (Art. 42 Nº1 LIR) (cód 2306)": "Gastos por causa del trabajo(2306)",
+    "Sala cuna (Art 203) (cód 2308)":       "Sala cuna(2308)",
+    "Alojamiento por razones de trabajo (2310)":                                            "Alojamiento por razones de trabajo(2310)",
+    "Indemnización fuero maternal (Art 163 bis) (cód 2316)":                                "Indemnización fuero maternal(2316)",
+    "Indemnización a todo evento (Art.164) (cód 2331)":                                     "Pago indemnización a todo evento(2331)",
+    "Indemnizaciones voluntarias tributables (cód 2417)":                                   "Indemnizaciones voluntarias tributables(2417)",
+    "Indemnizaciones contractuales tributables (cód 2418)":                                 "Indemnizaciones contractuales tributables(2418)",
+    "Cotización adicional trabajo pesado- trabajador (cód 3154)":                           "Cotización adicional trabajo pesado - trabajador(3154)",
+    "Impuesto retenido por indemnizaciones (cód 3162)":                                     "Impuesto retenido por indemnizaciones(3162)",
+    "Mayor retención de impuesto solicitada por el trabajador (cód 3163)":                  "Mayor retención de impuestos solicitada por el trabajador(3163)",
+    "Impuesto retenido por reliquidación de remuneraciones devengadas en otros períodos mensuales (cód 3164)": "Impuesto retenido por reliquidación remun. devengadas otros períodos(3164)",
+    "Cuota vivienda o educación Art. 58 (cód 3181)":                                        "Cuota vivienda o educación(3181)",
+    "Crédito cooperativas de ahorro (Art 54 Ley Coop.) (cód 3182)":                         "Crédito cooperativas de ahorro(3182)",
+    "Otros descuentos autorizados y solicitados por el trabajador (cód 3183)":              "Otros descuentos autorizados y solicitados por el trabajador(3183)",
+    "Aporte adicional trabajo pesado- empleador (cód 4154)":                                "Aporte adicional trabajo pesado - empleador(4154)",
+    "Mutual":                               "Org. administrador ley 16.744(1152)",
+}
+
 GRUPOS_AFP = {
     "afp", "reliquidaAfp", "afpAhor", "cesEmpleado", "reliquidaCesEmpl",
     "trabajoPesaEmpl", "voluntarioCoti", "voluntarioAhor", "reliquidaTrabEmpl",
@@ -463,12 +496,59 @@ def validar_estructura(df, columnas_requeridas):
 
 
 def validar_archivos(archivos_subidos):
-    """Valida que todos los archivos sean de la misma empresa."""
+    """Valida que todos los archivos sean de la misma empresa.
+    Para formato LRE (nombre empieza con dígito) compara prefijo de 10 chars.
+    Para formato Rex+ (nombre libre) omite la validación por nombre."""
     nombres = [f.name for f in archivos_subidos]
     prefijos = [n[:10] for n in nombres]
+    # Solo aplica si el nombre sigue convención RUT empresa (empieza con dígito)
+    if not nombres[0][0].isdigit():
+        return True, prefijos
     if len(set(prefijos)) > 1:
         return False, prefijos
     return True, prefijos
+
+def detectar_formato_rexplus(df):
+    """Retorna True si el CSV es formato Rex+ (tiene 'Id empleado' en lugar de 'Rut trabajador (1101)')."""
+    return "Id empleado" in df.columns and "Rut trabajador (1101)" not in df.columns
+
+def normalizar_rexplus(df):
+    """
+    Normaliza un DataFrame formato Rex+ al formato LRE que espera el programa.
+    Retorna (df_normalizado, df_listado_empleados).
+    """
+    df = df.copy()
+
+    # Convertir separador decimal de coma a punto en columnas numéricas
+    for col in df.select_dtypes(include="object").columns:
+        convertida = df[col].astype(str).str.replace(",", ".", regex=False)
+        convertida_num = pd.to_numeric(convertida, errors="coerce")
+        # Solo reemplazar si la mayoría de valores son numéricos
+        if convertida_num.notna().sum() > df[col].notna().sum() * 0.5:
+            df[col] = convertida_num
+
+    # Combinar AFC empleador solidario + individual → AFC - Aporte empleador(4151)
+    col_sol = "AFC - Aporte empleador solidario"
+    col_ind = "AFC - Aporte empleador individual"
+    if col_sol in df.columns or col_ind in df.columns:
+        df["AFC - Aporte empleador(4151)"] = (
+            pd.to_numeric(df.get(col_sol, 0), errors="coerce").fillna(0) +
+            pd.to_numeric(df.get(col_ind, 0), errors="coerce").fillna(0)
+        )
+        df.drop(columns=[c for c in [col_sol, col_ind] if c in df.columns], inplace=True)
+
+    # Construir listado_empleados antes de renombrar columnas
+    df_empl = pd.DataFrame({
+        "Rut":     df["Id empleado"].astype(str),
+        "AFP":     df["afp"].astype(str) if "afp" in df.columns else "",
+        "Isapre":  df["isapre"].astype(str) if "isapre" in df.columns else "",
+        "Empresa": df["Id de empresa"].astype(str) if "Id de empresa" in df.columns else "",
+    })
+
+    # Renombrar columnas al estándar LRE
+    df.rename(columns=COLS_REXPLUS_TO_LRE, inplace=True)
+
+    return df, df_empl
 
 def calcular_totales(df):
     """Calcula los 5 totales pre-validación."""
@@ -812,12 +892,13 @@ with nav_migracion:
             "Sube el archivo listado_empleados.xlsx correspondiente al período a procesar",
             type=["xlsx"],
             accept_multiple_files=False,
-            help="Este archivo cambia en cada proceso. Debe contener: Rut, Empresa, AFP, Isapre"
+            help="Requerido solo para archivos LRE estándar. Debe contener: Rut, Empresa, AFP, Isapre. "
+                 "No es necesario para archivos exportados directamente desde Rex+."
         )
         if archivo_empleados:
             st.markdown(f'<div class="alert-success">✅ Listado de empleados cargado: <b>{archivo_empleados.name}</b></div>', unsafe_allow_html=True)
         else:
-            st.markdown('<div class="alert-warning">⚠️ Debes subir el listado de empleados del período para ejecutar el proceso.</div>', unsafe_allow_html=True)
+            st.markdown('<div class="alert-warning">⚠️ Requerido solo para archivos LRE estándar. Los archivos exportados desde Rex+ no lo necesitan.</div>', unsafe_allow_html=True)
 
     if archivos:
         st.markdown(f'<div class="alert-success">✅ {len(archivos)} archivo(s) cargado(s): {", ".join([f.name for f in archivos])}</div>', unsafe_allow_html=True)
@@ -832,114 +913,138 @@ with nav_migracion:
             </div>""", unsafe_allow_html=True)
             st.stop()
 
-        if not archivo_empleados:
-            st.info("Sube el listado de empleados del período para habilitar el proceso.")
-        else:
-            if st.button("▶ Ejecutar validaciones"):
-                todos_errores = []
-                dfs = []
+        if st.button("▶ Ejecutar validaciones"):
+            todos_errores = []
+            dfs = []
+            df_empl_acum = pd.DataFrame()
 
-                # Leer listado_empleados (encabezado real en la fila 2; fila 1 = título)
+            # ── Detectar formato leyendo el primer archivo ──
+            primer_archivo = archivos[0]
+            primer_archivo.seek(0)
+            try:
+                df_muestra = pd.read_csv(primer_archivo, encoding="utf-8-sig", sep=None, engine="python", nrows=1)
+            except Exception:
+                primer_archivo.seek(0)
+                df_muestra = pd.read_csv(primer_archivo, encoding="latin-1", sep=None, engine="python", nrows=1)
+            primer_archivo.seek(0)
+            es_rexplus = detectar_formato_rexplus(df_muestra)
+
+            if es_rexplus:
+                st.markdown('<div class="alert-success">✅ Formato detectado: <b>Rex+</b>. Los datos de AFP, Isapre y Mutual se obtienen del propio archivo.</div>', unsafe_allow_html=True)
+            else:
+                # Formato LRE estándar: requiere listado_empleados.xlsx
+                if not archivo_empleados:
+                    st.markdown('<div class="alert-error">❌ Debes subir el listado de empleados del período para archivos en formato LRE estándar.</div>', unsafe_allow_html=True)
+                    st.stop()
                 df_empleados_previred = pd.read_excel(archivo_empleados, header=1)
                 df_empleados_previred.columns = [str(c).strip() for c in df_empleados_previred.columns]
-
-                # ── Validar estructura de listado_empleados (independiente del nombre del archivo) ──
                 ok_emp, faltantes_emp = validar_estructura(df_empleados_previred, ["Rut", "Empresa", "AFP", "Isapre"])
                 if not ok_emp:
                     st.markdown(f'<div class="alert-error">❌ <b>{archivo_empleados.name}</b>: Archivo no tiene la estructura esperada, corrija antes de continuar.</div>', unsafe_allow_html=True)
                     st.stop()
-
                 refs["listado_empleados"] = df_empleados_previred
 
-                with st.spinner("Procesando archivos..."):
-                    for archivo in archivos:
-                        for enc in ("utf-8", "latin-1", "utf-8-sig", "cp1252"):
-                            try:
-                                archivo.seek(0)
-                                df = pd.read_csv(archivo, encoding=enc, sep=None, engine="python")
-                                df["_fila_csv"] = range(2, len(df) + 2)
-                                break
-                            except (UnicodeDecodeError, Exception):
-                                continue
-                        else:
-                            st.error(f"❌ No se pudo leer {archivo.name}. Verifica que sea un CSV válido.")
-                            st.stop()
+            with st.spinner("Procesando archivos..."):
+                for archivo in archivos:
+                    for enc in ("utf-8-sig", "utf-8", "latin-1", "cp1252"):
+                        try:
+                            archivo.seek(0)
+                            df = pd.read_csv(archivo, encoding=enc, sep=None, engine="python")
+                            df["_fila_csv"] = range(2, len(df) + 2)
+                            break
+                        except (UnicodeDecodeError, Exception):
+                            continue
+                    else:
+                        st.error(f"❌ No se pudo leer {archivo.name}. Verifica que sea un CSV válido.")
+                        st.stop()
 
-                        # ── Validar estructura del CSV (independiente del nombre del archivo) ──
-                        if df.empty:
-                            st.markdown(f'<div class="alert-error">❌ <b>{archivo.name}</b>: Archivo no tiene la estructura esperada, corrija antes de continuar.</div>', unsafe_allow_html=True)
-                            st.stop()
-                        if "Rut trabajador (1101)" not in df.columns:
-                            st.markdown(f'<div class="alert-error">❌ <b>{archivo.name}</b>: Archivo no tiene la estructura esperada, corrija antes de continuar.</div>', unsafe_allow_html=True)
-                            st.stop()
+                    # ── Normalizar si es formato Rex+ ──
+                    if es_rexplus:
+                        df, df_empl = normalizar_rexplus(df)
+                        df_empl_acum = pd.concat([df_empl_acum, df_empl], ignore_index=True).drop_duplicates(subset=["Rut"])
+                        refs["listado_empleados"] = df_empl_acum
 
-                        df = calcular_totales(df)
-                        errores = validar_cuadraturas(df, archivo.name)
-                        todos_errores.extend(errores)
+                    # ── Validar estructura del CSV ──
+                    if df.empty:
+                        st.markdown(f'<div class="alert-error">❌ <b>{archivo.name}</b>: Archivo no tiene la estructura esperada, corrija antes de continuar.</div>', unsafe_allow_html=True)
+                        st.stop()
+                    if "Rut trabajador (1101)" not in df.columns:
+                        st.markdown(f'<div class="alert-error">❌ <b>{archivo.name}</b>: Archivo no tiene la estructura esperada, corrija antes de continuar.</div>', unsafe_allow_html=True)
+                        st.stop()
+
+                    df = calcular_totales(df)
+                    errores = validar_cuadraturas(df, archivo.name)
+                    todos_errores.extend(errores)
+
+                    # Obtener fecha de proceso
+                    if es_rexplus and "Fecha de proceso" in df.columns:
+                        fecha_proceso = str(df["Fecha de proceso"].iloc[0])[:7]
+                    else:
                         fecha_proceso = extraer_fecha_proceso(archivo.name)
-                        df["_fecha_proceso"] = fecha_proceso
-                        dfs.append(df)
 
-                st.markdown('<hr class="rex-divider">', unsafe_allow_html=True)
-                st.markdown("### 🔍 Resultado de validaciones")
+                    df["_fecha_proceso"] = fecha_proceso
+                    dfs.append(df)
 
-                if todos_errores:
-                    st.markdown(f"""
-                    <div class="alert-error">
-                        ❌ <b>No se puede generar el archivo de salida.</b><br>
-                        Se encontraron <b>{len(todos_errores)} error(es)</b> de validación en los registros procesados.
-                    </div>""", unsafe_allow_html=True)
+            st.markdown('<hr class="rex-divider">', unsafe_allow_html=True)
+            st.markdown("### 🔍 Resultado de validaciones")
 
-                    with st.expander("📋 Ver log de errores detallado"):
-                        df_errores = pd.DataFrame(todos_errores)
-                        st.dataframe(df_errores, use_container_width=True, hide_index=True)
-                        csv_log = df_errores.to_csv(index=False).encode("utf-8")
-                        st.download_button(
-                            label="⬇️ Descargar log de errores (.csv)",
-                            data=csv_log,
-                            file_name=f"log_errores_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                            mime="text/csv"
-                        )
-                else:
-                    st.markdown("""
-                    <div class="alert-success">
-                        ✅ <b>Todas las validaciones se cumplieron correctamente.</b><br>
-                        Los registros de todos los archivos cuadran sin diferencias.
-                    </div>""", unsafe_allow_html=True)
+            if todos_errores:
+                st.markdown(f"""
+                <div class="alert-error">
+                    ❌ <b>No se puede generar el archivo de salida.</b><br>
+                    Se encontraron <b>{len(todos_errores)} error(es)</b> de validación en los registros procesados.
+                </div>""", unsafe_allow_html=True)
 
-                    st.markdown("#### ¿Desea generar el archivo de salida?")
-                    col_a, col_b, col_c, _ = st.columns([1, 1, 1, 4])
-                    with col_a:
-                        aceptar = st.button("✅ Aceptar")
-                    with col_b:
-                        cancelar = st.button("✖ Cancelar")
-                    with col_c:
-                        salir = st.button("🚪 Salir")
+                with st.expander("📋 Ver log de errores detallado"):
+                    df_errores = pd.DataFrame(todos_errores)
+                    st.dataframe(df_errores, use_container_width=True, hide_index=True)
+                    csv_log = df_errores.to_csv(index=False).encode("utf-8")
+                    st.download_button(
+                        label="⬇️ Descargar log de errores (.csv)",
+                        data=csv_log,
+                        file_name=f"log_errores_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                        mime="text/csv"
+                    )
+            else:
+                st.markdown("""
+                <div class="alert-success">
+                    ✅ <b>Todas las validaciones se cumplieron correctamente.</b><br>
+                    Los registros de todos los archivos cuadran sin diferencias.
+                </div>""", unsafe_allow_html=True)
 
-                    if salir:
-                        st.markdown('<div class="alert-warning">La sesión ha sido cerrada. Puedes cerrar esta ventana.</div>', unsafe_allow_html=True)
-                        st.stop()
-                    if cancelar:
-                        st.markdown('<div class="alert-warning">Operación cancelada. Puedes subir nuevos archivos.</div>', unsafe_allow_html=True)
-                        st.stop()
-                    if aceptar:
-                        with st.spinner("Generando archivo de salida..."):
-                            df_combined = pd.concat(dfs, ignore_index=True)
-                            filas_salida = []
-                            for _, grupo in df_combined.groupby("_fecha_proceso"):
-                                fp = grupo["_fecha_proceso"].iloc[0]
-                                df_out = generar_filas_salida(grupo, fp, refs)
-                                filas_salida.append(df_out)
-                            df_final = pd.concat(filas_salida, ignore_index=True) if filas_salida else pd.DataFrame()
-                            excel_bytes = generar_excel(df_final)
-                        st.markdown('<div class="alert-success">✅ Archivo generado exitosamente.</div>', unsafe_allow_html=True)
-                        nombre_empresa = archivos[0].name[:10]
-                        st.download_button(
-                            label="⬇️ Descargar archivo de salida (.xlsx)",
-                            data=excel_bytes,
-                            file_name=f"migracion_{nombre_empresa}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                        )
+                st.markdown("#### ¿Desea generar el archivo de salida?")
+                col_a, col_b, col_c, _ = st.columns([1, 1, 1, 4])
+                with col_a:
+                    aceptar = st.button("✅ Aceptar")
+                with col_b:
+                    cancelar = st.button("✖ Cancelar")
+                with col_c:
+                    salir = st.button("🚪 Salir")
+
+                if salir:
+                    st.markdown('<div class="alert-warning">La sesión ha sido cerrada. Puedes cerrar esta ventana.</div>', unsafe_allow_html=True)
+                    st.stop()
+                if cancelar:
+                    st.markdown('<div class="alert-warning">Operación cancelada. Puedes subir nuevos archivos.</div>', unsafe_allow_html=True)
+                    st.stop()
+                if aceptar:
+                    with st.spinner("Generando archivo de salida..."):
+                        df_combined = pd.concat(dfs, ignore_index=True)
+                        filas_salida = []
+                        for _, grupo in df_combined.groupby("_fecha_proceso"):
+                            fp = grupo["_fecha_proceso"].iloc[0]
+                            df_out = generar_filas_salida(grupo, fp, refs)
+                            filas_salida.append(df_out)
+                        df_final = pd.concat(filas_salida, ignore_index=True) if filas_salida else pd.DataFrame()
+                        excel_bytes = generar_excel(df_final)
+                    st.markdown('<div class="alert-success">✅ Archivo generado exitosamente.</div>', unsafe_allow_html=True)
+                    nombre_empresa = archivos[0].name[:10]
+                    st.download_button(
+                        label="⬇️ Descargar archivo de salida (.xlsx)",
+                        data=excel_bytes,
+                        file_name=f"migracion_{nombre_empresa}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    )
 
 with nav_dt:
     render_modulo_dt(refs)
