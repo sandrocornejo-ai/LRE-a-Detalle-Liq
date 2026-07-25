@@ -687,6 +687,10 @@ def generar_filas_salida(df, fecha_proceso, refs):
             monto = row.get(col_csv, 0) or 0
             id_concepto = equiv_dict.get(col_csv, "")
 
+            # Excluir conceptos con monto 0, excepto impuesto y cesEmpleado
+            if monto == 0 and "impuesto" not in id_concepto.lower() and id_concepto != "cesEmpleado":
+                continue
+
             # Id de institución
             id_institucion = ""
             if id_concepto in GRUPOS_AFP:
@@ -992,18 +996,18 @@ with nav_migracion:
                     dfs.append(df)
 
             # ── Persistir resultados en session_state ──
-            st.session_state["_validacion_ok"] = True
-            st.session_state["_todos_errores"] = todos_errores
-            st.session_state["_dfs"] = dfs
-            st.session_state["_refs_empl"] = refs.get("listado_empleados", pd.DataFrame())
-            st.session_state["_nombre_empresa"] = archivos[0].name[:10]
+            st.session_state["_validacion_ok"]    = True
+            st.session_state["_todos_errores"]    = todos_errores
+            st.session_state["_dfs"]              = dfs
+            st.session_state["_refs_empl"]        = refs.get("listado_empleados", pd.DataFrame())
+            st.session_state["_nombre_empresa"]   = archivos[0].name[:10]
 
         # ── Mostrar resultados (persiste entre reruns via session_state) ──
         if st.session_state.get("_validacion_ok"):
             st.markdown('<hr class="rex-divider">', unsafe_allow_html=True)
             st.markdown("### 🔍 Resultado de validaciones")
 
-            _todos_errores = st.session_state["_todos_errores"]
+            _todos_errores  = st.session_state["_todos_errores"]
             _dfs            = st.session_state["_dfs"]
             _refs_empl      = st.session_state["_refs_empl"]
             _nombre_empresa = st.session_state["_nombre_empresa"]
