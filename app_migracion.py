@@ -1072,7 +1072,7 @@ with nav_migracion:
 
                     # Obtener fecha de proceso
                     if es_rexplus and "Fecha de proceso" in df.columns:
-                        fecha_proceso = str(df["Fecha de proceso"].iloc[0])[:7]
+                        fecha_proceso = str(df["Fecha de proceso"].iloc[0])[:7].strip().strip("'\"")
                     else:
                         fecha_proceso = extraer_fecha_proceso(archivo.name)
 
