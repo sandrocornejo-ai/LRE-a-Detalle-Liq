@@ -644,7 +644,7 @@ def generar_filas_salida(df, fecha_proceso, refs):
     if not params.empty and "mes_Proc" in params.columns:
         fila_params = params[params["mes_Proc"].astype(str).str.strip() == str(fecha_proceso).strip()]
         if fila_params.empty:
-            fila_params = params  # fallback: primera fila si no encuentra el mes
+            fila_params = params
         fp = fila_params.iloc[0]
         tope_afp   = pd.to_numeric(fp.get("topeImp_pesos_afp", 0), errors="coerce") or 0
         tope_ces   = pd.to_numeric(fp.get("topeCes_pesos",     0), errors="coerce") or 0
@@ -685,7 +685,6 @@ def generar_filas_salida(df, fecha_proceso, refs):
         total_haberes_afectos  = row.get("_total_haberes_afectos", 0) or 0
         total_haberes_exentos  = row.get("_total_haberes_exentos", 0) or 0
 
-        # Valores pre-calculados para isapre e impuesto
         def _n(v):
             try: return float(str(v).replace(",", ".")) if pd.notna(v) and str(v).strip() != "" else 0.0
             except: return 0.0
@@ -780,7 +779,7 @@ def generar_filas_salida(df, fecha_proceso, refs):
             elif id_concepto == "licenciaDias":
                 cot_jubilacion = ""
             elif id_concepto == "totalesEmpl":
-                cot_jubilacion = min(total_imponible, tope_afp) if tope_afp > 0 else total_imponible
+                cot_jubilacion = min(total_haberes_afectos, tope_afp) if tope_afp > 0 else total_haberes_afectos
 
             filas.append({
                 "Fecha de proceso": fecha_proceso,
@@ -1014,7 +1013,6 @@ with nav_migracion:
             primer_archivo.seek(0)
             es_rexplus = detectar_formato_rexplus(df_muestra)
 
-            # ── Validar y cargar parámetros mensuales ──
             if not archivo_params:
                 st.markdown('<div class="alert-error">❌ Debes subir el archivo parametrosMensuales.xlsx para continuar.</div>', unsafe_allow_html=True)
                 st.stop()
