@@ -1083,6 +1083,7 @@ with nav_migracion:
             st.session_state["_todos_errores"]  = todos_errores
             st.session_state["_dfs"]            = dfs
             st.session_state["_refs_empl"]      = refs.get("listado_empleados", pd.DataFrame())
+            st.session_state["_refs_params"]    = refs.get("parametros", pd.DataFrame())
             st.session_state["_nombre_empresa"] = archivos[0].name[:10]
 
         if st.session_state.get("_validacion_ok"):
@@ -1137,6 +1138,7 @@ with nav_migracion:
                     st.stop()
                 if aceptar:
                     refs["listado_empleados"] = _refs_empl
+                    refs["parametros"] = st.session_state.get("_refs_params", refs.get("parametros", pd.DataFrame()))
                     with st.spinner("Generando archivo de salida..."):
                         df_combined = pd.concat(_dfs, ignore_index=True)
                         filas_salida = []
