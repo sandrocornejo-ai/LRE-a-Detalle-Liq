@@ -765,13 +765,15 @@ def generar_filas_salida(df, fecha_proceso, refs):
                 "Cotización de jubilación": cot_jubilacion,
                 "Días de licencias": dias_licencia,
                 "Días trabajados": dias_trabajados,
-                "Fecha de aplicación": "x",
+                "Fecha de aplicación": fecha_proceso,
                 "Empresa": empresa_salida,
-                "Total de rebajas por L": rebaja_zona,
+                "Total de rebajas por LLSS": 0,
+                "Rentas no gravadas": 0,
+                "Rebaja por zona extrema": rebaja_zona,
                 "Jornada": "C",
-                "Fase": 1,
                 "Días de vacaciones": dias_vacaciones,
                 "Monto Init": monto_init,
+                "Fase": 1,
             })
 
         # Fila adicional licenciaDias si aplica
@@ -787,13 +789,15 @@ def generar_filas_salida(df, fecha_proceso, refs):
                 "Cotización de jubilación": "",
                 "Días de licencias": dias_licencia,
                 "Días trabajados": dias_trabajados,
-                "Fecha de aplicación": "x",
+                "Fecha de aplicación": fecha_proceso,
                 "Empresa": empresa_salida,
-                "Total de rebajas por L": rebaja_zona,
+                "Total de rebajas por LLSS": 0,
+                "Rentas no gravadas": 0,
+                "Rebaja por zona extrema": rebaja_zona,
                 "Jornada": "C",
-                "Fase": 1,
                 "Días de vacaciones": dias_vacaciones,
                 "Monto Init": monto_init,
+                "Fase": 1,
             })
 
     return pd.DataFrame(filas)
