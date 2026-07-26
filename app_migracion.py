@@ -747,6 +747,8 @@ def generar_filas_salida(df, fecha_proceso, refs):
                 afecto = min(total_imponible, tope_ces) if tope_ces > 0 else total_imponible
             elif id_concepto == "totalesEmpl":
                 afecto = total_haberes_afectos
+            elif id_concepto == "impuesto":
+                afecto = total_haberes_afectos - rebaja_llss_impuesto
 
             # Cotización de jubilación
             cot_jubilacion = 0
