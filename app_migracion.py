@@ -715,7 +715,6 @@ def generar_filas_salida(df, fecha_proceso, refs):
 
             if monto == 0 and id_concepto not in CONCEPTOS_CON_CERO:
                 continue
-            # isapre se genera fuera del loop con monto combinado
             if id_concepto == "isapre":
                 continue
 
@@ -803,7 +802,7 @@ def generar_filas_salida(df, fecha_proceso, refs):
                 "Fase": 1,
             })
 
-        # Fila isapre combinada (col_3143 + col_3144)
+        # Fila isapre combinada
         if monto_isapre != 0:
             filas.append({
                 "Fecha de proceso": fecha_proceso,
@@ -1016,7 +1015,11 @@ with nav_migracion:
             if not archivo_params:
                 st.markdown('<div class="alert-error">❌ Debes subir el archivo parametrosMensuales.xlsx para continuar.</div>', unsafe_allow_html=True)
                 st.stop()
-            df_params = pd.read_excel(archivo_params, sheet_name="Hoja2", dtype={"mes_Proc": str})
+            try:
+                df_params = pd.read_excel(archivo_params, sheet_name="Hoja2", dtype={"mes_Proc": str})
+            except Exception:
+                archivo_params.seek(0)
+                df_params = pd.read_excel(archivo_params, sheet_name=0, dtype={"mes_Proc": str})
             df_params["mes_Proc"] = df_params["mes_Proc"].astype(str).str.strip()
             refs["parametros"] = df_params
 
