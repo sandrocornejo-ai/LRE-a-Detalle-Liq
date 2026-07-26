@@ -764,7 +764,7 @@ def generar_filas_salida(df, fecha_proceso, refs):
                 "Id de institución": id_institucion,
                 "Cotización de jubilación": cot_jubilacion,
                 "Días de licencias": dias_licencia,
-                "Días trabajados": dias_vacaciones,
+                "Días trabajados": dias_trabajados,
                 "Fecha de aplicación": "x",
                 "Empresa": empresa_salida,
                 "Total de rebajas por L": rebaja_zona,
@@ -786,7 +786,7 @@ def generar_filas_salida(df, fecha_proceso, refs):
                 "Id de institución": "",
                 "Cotización de jubilación": "",
                 "Días de licencias": dias_licencia,
-                "Días trabajados": dias_vacaciones,
+                "Días trabajados": dias_trabajados,
                 "Fecha de aplicación": "x",
                 "Empresa": empresa_salida,
                 "Total de rebajas por L": rebaja_zona,
@@ -999,7 +999,7 @@ with nav_migracion:
                     df["_fecha_proceso"] = fecha_proceso
                     dfs.append(df)
 
-            # ── Persistir en session_state para sobrevivir reruns ──
+            # ── Persistir en session_state ──
             st.session_state["_validacion_ok"]  = True
             st.session_state["_todos_errores"]  = todos_errores
             st.session_state["_dfs"]            = dfs
@@ -1008,13 +1008,13 @@ with nav_migracion:
 
         # ── Resultados (fuera del bloque del botón) ──
         if st.session_state.get("_validacion_ok"):
-            st.markdown('<hr class="rex-divider">', unsafe_allow_html=True)
-            st.markdown("### 🔍 Resultado de validaciones")
-
             _todos_errores  = st.session_state["_todos_errores"]
             _dfs            = st.session_state["_dfs"]
             _refs_empl      = st.session_state["_refs_empl"]
             _nombre_empresa = st.session_state["_nombre_empresa"]
+
+            st.markdown('<hr class="rex-divider">', unsafe_allow_html=True)
+            st.markdown("### 🔍 Resultado de validaciones")
 
             if _todos_errores:
                 st.markdown(f"""
