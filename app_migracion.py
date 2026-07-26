@@ -683,6 +683,7 @@ def generar_filas_salida(df, fecha_proceso, refs):
         monto_init = (sueldo / dias_trabajados * 30) if dias_trabajados > 0 else 0
 
         # Fila por cada concepto
+        CONCEPTOS_CON_CERO = {"impuesto", "cesEmpleado"}
         for col_csv in cols_concepto:
             _monto_raw = row.get(col_csv, 0)
             try:
@@ -691,8 +692,8 @@ def generar_filas_salida(df, fecha_proceso, refs):
                 monto = 0.0
             id_concepto = equiv_dict.get(col_csv, "")
 
-            # Excluir conceptos con monto 0, excepto impuesto y cesEmpleado
-            if monto == 0 and "impuesto" not in id_concepto.lower() and id_concepto != "cesEmpleado":
+            # Excluir conceptos con monto 0, salvo los de excepción exacta
+            if monto == 0 and id_concepto not in CONCEPTOS_CON_CERO:
                 continue
 
             # Id de institución
@@ -728,13 +729,13 @@ def generar_filas_salida(df, fecha_proceso, refs):
                 if not cot_afp.empty and "id_afp_hist" in cot_afp.columns:
                     r = cot_afp[cot_afp["id_afp_hist"] == key_afp]
                     if not r.empty:
-                        cot_jubilacion = r.iloc[0].get("cot_hist_afp", 0)
+                        cot_jubilacion = r.iloc[0].get("cot_hist_afp", 0) * 100
             elif id_concepto == "sis":
                 key_sis = f"{fecha_proceso}{id_institucion}"
                 if not cot_afp.empty and "id_afp_hist" in cot_afp.columns:
                     r = cot_afp[cot_afp["id_afp_hist"] == key_sis]
                     if not r.empty:
-                        cot_jubilacion = r.iloc[0].get("sis_hist", 0)
+                        cot_jubilacion = r.iloc[0].get("sis_hist", 0) * 100
             elif id_concepto == "cesEmpleado":
                 cot_jubilacion = 0.6
             elif id_concepto == "isapre":
@@ -749,7 +750,7 @@ def generar_filas_salida(df, fecha_proceso, refs):
                             if not e.empty:
                                 cot_jubilacion = e.iloc[0]["Cotización Mutual"]
             elif id_concepto == "licenciaDias":
-                cot_jubilacion = dias_licencia
+                cot_jubilacion = ""
             elif id_concepto == "totalesEmpl":
                 cot_jubilacion = min(total_imponible, tope_afp) if tope_afp > 0 else total_imponible
 
@@ -783,7 +784,7 @@ def generar_filas_salida(df, fecha_proceso, refs):
                 "Monto del concepto": dias_licencia,
                 "Afecto": "",
                 "Id de institución": "",
-                "Cotización de jubilación": dias_licencia,
+                "Cotización de jubilación": "",
                 "Días de licencias": dias_licencia,
                 "Días trabajados": dias_vacaciones,
                 "Fecha de aplicación": "x",
@@ -911,7 +912,6 @@ with nav_migracion:
     if archivos:
         st.markdown(f'<div class="alert-success">✅ {len(archivos)} archivo(s) cargado(s): {", ".join([f.name for f in archivos])}</div>', unsafe_allow_html=True)
 
-        # Resetear validación si el usuario cambia los archivos
         archivos_key = tuple(f.name for f in archivos)
         if st.session_state.get("_archivos_key") != archivos_key:
             st.session_state["_validacion_ok"] = False
@@ -999,14 +999,14 @@ with nav_migracion:
                     df["_fecha_proceso"] = fecha_proceso
                     dfs.append(df)
 
-            # ── Persistir en session_state para sobrevivir reruns de Streamlit ──
+            # ── Persistir en session_state para sobrevivir reruns ──
             st.session_state["_validacion_ok"]  = True
             st.session_state["_todos_errores"]  = todos_errores
             st.session_state["_dfs"]            = dfs
             st.session_state["_refs_empl"]      = refs.get("listado_empleados", pd.DataFrame())
             st.session_state["_nombre_empresa"] = archivos[0].name[:10]
 
-        # ── Resultados (fuera del bloque del botón, usa session_state) ──
+        # ── Resultados (fuera del bloque del botón) ──
         if st.session_state.get("_validacion_ok"):
             st.markdown('<hr class="rex-divider">', unsafe_allow_html=True)
             st.markdown("### 🔍 Resultado de validaciones")
