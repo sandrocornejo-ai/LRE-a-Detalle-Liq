@@ -636,14 +636,20 @@ def generar_filas_salida(df, fecha_proceso, refs):
     if not equiv.empty and "cod_lre" in equiv.columns and "concepto_detalle" in equiv.columns:
         equiv_dict = dict(zip(equiv["cod_lre"], equiv["concepto_detalle"]))
 
-    # Parámetros mensuales (primera fila)
-    tope_afp = 0
-    tope_ces = 0
-    if not params.empty:
-        if "topeImp_pesos_afp" in params.columns:
-            tope_afp = params["topeImp_pesos_afp"].iloc[0]
-        if "topeCes_pesos" in params.columns:
-            tope_ces = params["topeCes_pesos"].iloc[0]
+    # Parámetros mensuales — filtrar por mes de proceso
+    tope_afp    = 0
+    tope_ces    = 0
+    tasa_sis    = 0
+    tope_salud  = 0
+    if not params.empty and "mes_Proc" in params.columns:
+        fila_params = params[params["mes_Proc"].astype(str).str.strip() == str(fecha_proceso).strip()]
+        if fila_params.empty:
+            fila_params = params  # fallback: primera fila si no encuentra el mes
+        fp = fila_params.iloc[0]
+        tope_afp   = pd.to_numeric(fp.get("topeImp_pesos_afp", 0), errors="coerce") or 0
+        tope_ces   = pd.to_numeric(fp.get("topeCes_pesos",     0), errors="coerce") or 0
+        tasa_sis   = pd.to_numeric(fp.get("sis",               0), errors="coerce") or 0
+        tope_salud = pd.to_numeric(fp.get("topeSalud_pesos",   0), errors="coerce") or 0
 
     # Columnas de conceptos (las que están en equiv_dict)
     cols_concepto = [c for c in df.columns if c in equiv_dict]
@@ -675,7 +681,23 @@ def generar_filas_salida(df, fecha_proceso, refs):
         dias_licencia = row.get("Nro días de licencia médica en el mes(1116)", 0) or 0
         dias_vacaciones = row.get("Nro días de vacaciones en el mes(1117)", 0) or 0
         sueldo = row.get("Sueldo(2101)", 0) or 0
-        total_imponible = row.get("Total haberes imponibles y tributables(5210)", 0) or 0
+        total_imponible        = row.get("Total haberes imponibles y tributables(5210)", 0) or 0
+        total_haberes_afectos  = row.get("_total_haberes_afectos", 0) or 0
+        total_haberes_exentos  = row.get("_total_haberes_exentos", 0) or 0
+
+        # Valores pre-calculados para isapre e impuesto
+        def _n(v):
+            try: return float(str(v).replace(",", ".")) if pd.notna(v) and str(v).strip() != "" else 0.0
+            except: return 0.0
+        col_3143 = _n(row.get("Cotización obligatoria salud 7%(3143)", 0))
+        col_3144 = _n(row.get("Cotización voluntaria para salud(3144)", 0))
+        monto_isapre = col_3143 + col_3144
+        col_3141 = _n(row.get("Cotización obligatoria previsional (AFP o IPS)(3141)", 0))
+        col_3151 = _n(row.get("Cotización AFC - trabajador(3151)", 0))
+        col_3154 = _n(row.get("Cotización adicional trabajo pesado - trabajador(3154)", 0))
+        col_3156 = _n(row.get("Cotización APVi Mod B hasta UF50(3156)", 0))
+        salud_afecto = min(col_3143 + col_3144, tope_salud) if tope_salud > 0 else col_3143 + col_3144
+        rebaja_llss_impuesto = col_3141 + col_3151 + col_3154 + col_3156 + salud_afecto
         col_1152 = row.get("Org. administrador ley 16.744(1152)", "")
         col_3110 = row.get("Crédito social CCAF(3110)", 0) or 0
         rebaja_zona = row.get("Rebaja zona extrema DL 889 (3167)", 0) or 0
@@ -692,8 +714,10 @@ def generar_filas_salida(df, fecha_proceso, refs):
                 monto = 0.0
             id_concepto = equiv_dict.get(col_csv, "")
 
-            # Excluir conceptos con monto 0, salvo los de excepción exacta
             if monto == 0 and id_concepto not in CONCEPTOS_CON_CERO:
+                continue
+            # isapre se genera fuera del loop con monto combinado
+            if id_concepto == "isapre":
                 continue
 
             # Id de institución
@@ -715,12 +739,16 @@ def generar_filas_salida(df, fecha_proceso, refs):
 
             # Afecto
             afecto = ""
-            if id_concepto in GRUPOS_AFP_MUTUAL_AFECTO:
+            if id_concepto in {"afp", "isapre", "mutual", "sis", "trabajoPesaEmpl"}:
+                afecto = min(total_haberes_afectos, tope_afp) if tope_afp > 0 else total_haberes_afectos
+            elif id_concepto in {"cesEmpleado", "cesAporteCi", "cesAporteSol"}:
+                afecto = min(total_haberes_afectos, tope_ces) if tope_ces > 0 else total_haberes_afectos
+            elif id_concepto in GRUPOS_AFP_MUTUAL_AFECTO:
                 afecto = min(total_imponible, tope_afp) if tope_afp > 0 else total_imponible
             elif id_concepto in GRUPOS_CES_AFECTO:
                 afecto = min(total_imponible, tope_ces) if tope_ces > 0 else total_imponible
             elif id_concepto == "totalesEmpl":
-                afecto = total_imponible
+                afecto = total_haberes_afectos
 
             # Cotización de jubilación
             cot_jubilacion = 0
@@ -763,6 +791,30 @@ def generar_filas_salida(df, fecha_proceso, refs):
                 "Afecto": afecto,
                 "Id de institución": id_institucion,
                 "Cotización de jubilación": cot_jubilacion,
+                "Días de licencias": dias_licencia,
+                "Días trabajados": dias_trabajados,
+                "Fecha de aplicación": fecha_proceso,
+                "Empresa": empresa_salida,
+                "Total de rebajas por LLSS": rebaja_llss_impuesto if id_concepto == "impuesto" else 0,
+                "Rentas no gravadas": total_haberes_exentos if id_concepto == "impuesto" else 0,
+                "Rebaja por zona extrema": rebaja_zona,
+                "Jornada": "C",
+                "Días de vacaciones": dias_vacaciones,
+                "Monto Init": monto_init,
+                "Fase": 1,
+            })
+
+        # Fila isapre combinada (col_3143 + col_3144)
+        if monto_isapre != 0:
+            filas.append({
+                "Fecha de proceso": fecha_proceso,
+                "Id empleado": rut,
+                "Número de contrato": 1,
+                "Id del concepto": "isapre",
+                "Monto del concepto": monto_isapre,
+                "Afecto": min(total_haberes_afectos, tope_afp) if tope_afp > 0 else total_haberes_afectos,
+                "Id de institución": isapre_empleado,
+                "Cotización de jubilación": monto_isapre,
                 "Días de licencias": dias_licencia,
                 "Días trabajados": dias_trabajados,
                 "Fecha de aplicación": fecha_proceso,
@@ -913,6 +965,21 @@ with nav_migracion:
         else:
             st.markdown('<div class="alert-warning">⚠️ Requerido solo para archivos LRE estándar. Los archivos exportados desde Rex+ no lo necesitan.</div>', unsafe_allow_html=True)
 
+    col_up3, _ = st.columns([1, 1])
+    with col_up3:
+        st.markdown("#### 📅 Parámetros mensuales")
+        archivo_params = st.file_uploader(
+            "Sube el archivo parametrosMensuales.xlsx",
+            type=["xlsx"],
+            accept_multiple_files=False,
+            key="up_params",
+            help="Requerido siempre. Contiene los parámetros del mes a procesar."
+        )
+        if archivo_params:
+            st.markdown(f'<div class="alert-success">✅ Parámetros cargados: <b>{archivo_params.name}</b></div>', unsafe_allow_html=True)
+        else:
+            st.markdown('<div class="alert-error">❌ Debes subir el archivo parametrosMensuales.xlsx para continuar.</div>', unsafe_allow_html=True)
+
     if archivos:
         st.markdown(f'<div class="alert-success">✅ {len(archivos)} archivo(s) cargado(s): {", ".join([f.name for f in archivos])}</div>', unsafe_allow_html=True)
 
@@ -946,6 +1013,14 @@ with nav_migracion:
                 df_muestra = pd.read_csv(primer_archivo, encoding="latin-1", sep=None, engine="python", nrows=1)
             primer_archivo.seek(0)
             es_rexplus = detectar_formato_rexplus(df_muestra)
+
+            # ── Validar y cargar parámetros mensuales ──
+            if not archivo_params:
+                st.markdown('<div class="alert-error">❌ Debes subir el archivo parametrosMensuales.xlsx para continuar.</div>', unsafe_allow_html=True)
+                st.stop()
+            df_params = pd.read_excel(archivo_params, sheet_name="Hoja2", dtype={"mes_Proc": str})
+            df_params["mes_Proc"] = df_params["mes_Proc"].astype(str).str.strip()
+            refs["parametros"] = df_params
 
             if es_rexplus:
                 st.markdown('<div class="alert-success">✅ Formato detectado: <b>Rex+</b>. Los datos de AFP, Isapre y Mutual se obtienen del propio archivo.</div>', unsafe_allow_html=True)
@@ -1003,14 +1078,12 @@ with nav_migracion:
                     df["_fecha_proceso"] = fecha_proceso
                     dfs.append(df)
 
-            # ── Persistir en session_state ──
             st.session_state["_validacion_ok"]  = True
             st.session_state["_todos_errores"]  = todos_errores
             st.session_state["_dfs"]            = dfs
             st.session_state["_refs_empl"]      = refs.get("listado_empleados", pd.DataFrame())
             st.session_state["_nombre_empresa"] = archivos[0].name[:10]
 
-        # ── Resultados (fuera del bloque del botón) ──
         if st.session_state.get("_validacion_ok"):
             _todos_errores  = st.session_state["_todos_errores"]
             _dfs            = st.session_state["_dfs"]
