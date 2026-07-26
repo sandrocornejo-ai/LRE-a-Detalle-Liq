@@ -684,7 +684,11 @@ def generar_filas_salida(df, fecha_proceso, refs):
 
         # Fila por cada concepto
         for col_csv in cols_concepto:
-            monto = row.get(col_csv, 0) or 0
+            _monto_raw = row.get(col_csv, 0)
+            try:
+                monto = float(str(_monto_raw).replace(",", ".")) if pd.notna(_monto_raw) and str(_monto_raw).strip() != "" else 0.0
+            except (ValueError, TypeError):
+                monto = 0.0
             id_concepto = equiv_dict.get(col_csv, "")
 
             # Excluir conceptos con monto 0, excepto impuesto y cesEmpleado
@@ -995,14 +999,14 @@ with nav_migracion:
                     df["_fecha_proceso"] = fecha_proceso
                     dfs.append(df)
 
-            # ── Persistir resultados en session_state ──
-            st.session_state["_validacion_ok"]    = True
-            st.session_state["_todos_errores"]    = todos_errores
-            st.session_state["_dfs"]              = dfs
-            st.session_state["_refs_empl"]        = refs.get("listado_empleados", pd.DataFrame())
-            st.session_state["_nombre_empresa"]   = archivos[0].name[:10]
+            # ── Persistir en session_state para sobrevivir reruns de Streamlit ──
+            st.session_state["_validacion_ok"]  = True
+            st.session_state["_todos_errores"]  = todos_errores
+            st.session_state["_dfs"]            = dfs
+            st.session_state["_refs_empl"]      = refs.get("listado_empleados", pd.DataFrame())
+            st.session_state["_nombre_empresa"] = archivos[0].name[:10]
 
-        # ── Mostrar resultados (persiste entre reruns via session_state) ──
+        # ── Resultados (fuera del bloque del botón, usa session_state) ──
         if st.session_state.get("_validacion_ok"):
             st.markdown('<hr class="rex-divider">', unsafe_allow_html=True)
             st.markdown("### 🔍 Resultado de validaciones")
