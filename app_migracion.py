@@ -888,6 +888,54 @@ def generar_excel(df_salida):
     wb.save(output)
     return output.getvalue()
 
+def generar_log_excel(dfs):
+    """Genera log de validacion en Excel con columnas calculadas y highlight amarillo."""
+    df = pd.concat(dfs, ignore_index=True)
+
+    cols_internas = [c for c in df.columns if c.startswith("_") and c not in (
+        "_total_haberes_afectos", "_total_haberes_exentos",
+        "_total_descuentos_legales", "_total_otros_descuentos"
+    )]
+    df = df.drop(columns=cols_internas, errors="ignore")
+
+    df = df.rename(columns={
+        "_total_haberes_afectos":    "Total haberes afectos",
+        "_total_haberes_exentos":    "Total haberes exentos",
+        "_total_descuentos_legales": "Total descuentos legales",
+        "_total_otros_descuentos":   "Total otros descuentos",
+    })
+
+    df["Suma de haberes"]   = df["Total haberes afectos"] + df["Total haberes exentos"]
+    df["Total descuentos"]  = df["Total descuentos legales"] + df["Total otros descuentos"]
+    df["Liquido calculado"] = df["Suma de haberes"] - df["Total descuentos"]
+    col_liq = next((c for c in df.columns if "5501" in c), None)
+    df["Diferencia"] = (df["Liquido calculado"] - pd.to_numeric(df[col_liq], errors="coerce").fillna(0)) if col_liq else 0
+
+    out_buf = io.BytesIO()
+    wb2 = Workbook(); ws2 = wb2.active; ws2.title = "Log validacion"
+    hf = PatternFill("solid", fgColor="1A2744")
+    hfont = Font(bold=True, color="FFFFFF", size=10)
+    yf = PatternFill("solid", fgColor="FFFF00")
+    ef = PatternFill("solid", fgColor="EAF0F8")
+    wf = PatternFill("solid", fgColor="FFFFFF")
+    brd = Border(bottom=Side(style="thin", color="E8EDF5"), right=Side(style="thin", color="E8EDF5"))
+    cols2 = list(df.columns)
+    for ci, col in enumerate(cols2, 1):
+        cell = ws2.cell(row=1, column=ci, value=col)
+        cell.fill = hf; cell.font = hfont
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+        ws2.column_dimensions[cell.column_letter].width = max(len(str(col)) + 4, 14)
+    for ri, row in enumerate(df.itertuples(index=False), 2):
+        diff = row[-1]
+        rfill = yf if (isinstance(diff, (int, float)) and abs(diff) > 1) else (ef if ri % 2 == 0 else wf)
+        for ci, val in enumerate(row, 1):
+            cell = ws2.cell(row=ri, column=ci, value=val)
+            cell.fill = rfill; cell.border = brd
+            cell.alignment = Alignment(vertical="center")
+    ws2.freeze_panes = "A2"
+    wb2.save(out_buf)
+    return out_buf.getvalue()
+
 # ─────────────────────────────────────────────
 # INTERFAZ PRINCIPAL
 # ─────────────────────────────────────────────
@@ -1074,11 +1122,11 @@ with nav_migracion:
 
                     # Obtener fecha de proceso
                     if es_rexplus and "Fecha de proceso" in df.columns:
-                        fecha_proceso = str(df["Fecha de proceso"].iloc[0])[:7].strip().strip("'\"")
+                        df["_fecha_proceso"] = df["Fecha de proceso"].astype(str).str[:7].str.strip().str.strip("'\"")
                     else:
                         fecha_proceso = extraer_fecha_proceso(archivo.name)
 
-                    df["_fecha_proceso"] = fecha_proceso
+
                     dfs.append(df)
 
             st.session_state["_validacion_ok"]  = True
@@ -1107,12 +1155,12 @@ with nav_migracion:
                 with st.expander("📋 Ver log de errores detallado"):
                     df_errores = pd.DataFrame(_todos_errores)
                     st.dataframe(df_errores, use_container_width=True, hide_index=True)
-                    csv_log = df_errores.to_csv(index=False).encode("utf-8")
+                    xlsx_log = generar_log_excel(_dfs)
                     st.download_button(
-                        label="⬇️ Descargar log de errores (.csv)",
-                        data=csv_log,
-                        file_name=f"log_errores_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                        mime="text/csv"
+                        label="⬇️ Descargar log de errores (.xlsx)",
+                        data=xlsx_log,
+                        file_name=f"log_errores_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                     )
             else:
                 st.markdown("""
