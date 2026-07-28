@@ -476,7 +476,7 @@ def safe_sum(df, cols):
     cols_presentes = [c for c in cols if c in df.columns]
     if not cols_presentes:
         return pd.Series(0, index=df.index)
-    return df[cols_presentes].fillna(0).sum(axis=1)
+    return df[cols_presentes].apply(pd.to_numeric, errors="coerce").fillna(0).sum(axis=1)
 
 def get_col(df, col, default=0):
     """Obtiene una columna del df o retorna default si no existe."""
@@ -628,6 +628,17 @@ def generar_filas_salida(df, fecha_proceso, refs):
     empresas = refs.get("listado_empresas", pd.DataFrame())
     mutuales = refs.get("inst_mutuales", pd.DataFrame())
     cajas = refs.get("inst_cajas", pd.DataFrame())
+    salud_inst = refs.get("inst_salud", pd.DataFrame())
+    afp_inst   = refs.get("inst_afp", pd.DataFrame())
+
+    def _norm(s):
+        return str(s).lower().replace(" ","").replace("-","").replace("_","") if s else ""
+
+    def _lookup_id(df, id_col, value):
+        if df.empty or id_col not in df.columns or not value: return value
+        match = df[df[id_col].apply(_norm) == _norm(value)]
+        return match.iloc[0][id_col] if not match.empty else value
+
     cot_afp = refs.get("cot_afp_hist", pd.DataFrame())
     params = refs.get("parametros", pd.DataFrame())
 
@@ -658,8 +669,8 @@ def generar_filas_salida(df, fecha_proceso, refs):
         rut = row.get("Rut trabajador (1101)", "")
 
         # Lookup empresa
-        empresa_salida = ""
-        if not empleados.empty and "Rut" in empleados.columns:
+        empresa_salida = str(row.get("Id de empresa", "") or "").strip()
+        if not empresa_salida and not empleados.empty and "Rut" in empleados.columns:
             emp_row = empleados[empleados["Rut"] == rut]
             if not emp_row.empty:
                 nombre_empresa = emp_row.iloc[0].get("Empresa", "")
@@ -677,8 +688,13 @@ def generar_filas_salida(df, fecha_proceso, refs):
                 afp_empleado = emp_row.iloc[0].get("AFP", "")
                 isapre_empleado = emp_row.iloc[0].get("Isapre", "")
 
-        dias_trabajados = row.get("Nro días trabajados en el mes(1115)", 0) or 0
-        dias_licencia = row.get("Nro días de licencia médica en el mes(1116)", 0) or 0
+        _dias_trab_raw = row.get("Nro días trabajados en el mes(1115)",
+                          row.get("Nro días trabajados", 0))
+        _dias_trab_raw = int(pd.to_numeric(_dias_trab_raw, errors="coerce") or 0)
+        dias_trabajados = max(0, _dias_trab_raw - dias_licencia)
+        dias_licencia = row.get("Nro días de licencia médica en el mes(1116)",
+                         row.get("Nro días de licencia médica", None))
+        dias_licencia = int(pd.to_numeric(dias_licencia, errors="coerce") or 0)
         dias_vacaciones = row.get("Nro días de vacaciones en el mes(1117)", 0) or 0
         sueldo = row.get("Sueldo(2101)", 0) or 0
         total_imponible        = row.get("Total haberes imponibles y tributables(5210)", 0) or 0
@@ -721,14 +737,16 @@ def generar_filas_salida(df, fecha_proceso, refs):
             # Id de institución
             id_institucion = ""
             if id_concepto in GRUPOS_AFP:
-                id_institucion = afp_empleado
+                id_institucion = _lookup_id(afp_inst, "id_afp", afp_empleado)
             elif id_concepto in GRUPOS_ISAPRE:
-                id_institucion = isapre_empleado
+                id_institucion = _lookup_id(salud_inst, "id_inst", isapre_empleado)
             elif id_concepto in GRUPOS_MUTUAL:
-                if not mutuales.empty and "cod_lre" in mutuales.columns and "id_mutual" in mutuales.columns:
+                if not mutuales.empty and "id_mutual" in mutuales.columns:
                     m = mutuales[mutuales["cod_lre"] == col_1152]
-                    if not m.empty:
-                        id_institucion = m.iloc[0]["id_mutual"]
+                    if m.empty: m = mutuales[mutuales["id_mutual"].apply(_norm) == _norm(col_1152)]
+                    if m.empty and "nombre_mutual" in mutuales.columns:
+                        m = mutuales[mutuales["nombre_mutual"].apply(_norm) == _norm(col_1152)]
+                    if not m.empty: id_institucion = m.iloc[0]["id_mutual"]
             elif id_concepto in GRUPOS_CCAF and col_3110 != 0:
                 if not cajas.empty:
                     c = cajas[cajas.iloc[:, 0] == col_3110]
@@ -813,7 +831,7 @@ def generar_filas_salida(df, fecha_proceso, refs):
                 "Id del concepto": "isapre",
                 "Monto del concepto": monto_isapre,
                 "Afecto": min(total_haberes_afectos, tope_afp) if tope_afp > 0 else total_haberes_afectos,
-                "Id de institución": isapre_empleado,
+                "Id de institución": _lookup_id(salud_inst, "id_inst", isapre_empleado),
                 "Cotización de jubilación": monto_isapre,
                 "Días de licencias": dias_licencia,
                 "Días trabajados": dias_trabajados,
@@ -888,76 +906,39 @@ def generar_excel(df_salida):
     wb.save(output)
     return output.getvalue()
 
-def generar_log_excel(dfs):
-    """Genera log de validación en Excel con estructura del archivo de entrada y columnas calculadas."""
-    df = pd.concat(dfs, ignore_index=True)
-
-    # Eliminar columnas internas excepto las de totales calculados
-    cols_internas = [c for c in df.columns if c.startswith("_") and c not in (
-        "_total_haberes_afectos", "_total_haberes_exentos",
-        "_total_descuentos_legales", "_total_otros_descuentos"
-    )]
-    df = df.drop(columns=cols_internas, errors="ignore")
-
-    # Renombrar columnas calculadas a nombres de display
-    rename_map = {
-        "_total_haberes_afectos":    "Total haberes afectos",
-        "_total_haberes_exentos":    "Total haberes exentos",
-        "_total_descuentos_legales": "Total descuentos legales",
-        "_total_otros_descuentos":   "Total otros descuentos",
-    }
-    df = df.rename(columns=rename_map)
-
-    # Columnas derivadas
-    df["Suma de haberes"]   = df["Total haberes afectos"] + df["Total haberes exentos"]
-    df["Total descuentos"]  = df["Total descuentos legales"] + df["Total otros descuentos"]
-    df["Liquido calculado"] = df["Suma de haberes"] - df["Total descuentos"]
-
-    col_liquido = next((c for c in df.columns if "5501" in c), None)
-    if col_liquido:
-        df["Diferencia"] = df["Liquido calculado"] - pd.to_numeric(df[col_liquido], errors="coerce").fillna(0)
-    else:
-        df["Diferencia"] = 0
-
-    # Generar Excel con formato
-    output = io.BytesIO()
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Log validacion"
-
-    header_fill = PatternFill("solid", fgColor="1A2744")
-    header_font = Font(bold=True, color="FFFFFF", size=10)
-    yellow_fill = PatternFill("solid", fgColor="FFFF00")
-    even_fill   = PatternFill("solid", fgColor="EAF0F8")
-    odd_fill    = PatternFill("solid", fgColor="FFFFFF")
-    border      = Border(
-        bottom=Side(style="thin", color="E8EDF5"),
-        right=Side(style="thin", color="E8EDF5")
-    )
-
-    cols = list(df.columns)
-    for ci, col in enumerate(cols, 1):
-        cell = ws.cell(row=1, column=ci, value=col)
-        cell.fill = header_fill
-        cell.font = header_font
-        cell.alignment = Alignment(horizontal="center", vertical="center")
-        ws.column_dimensions[cell.column_letter].width = max(len(str(col)) + 4, 14)
-
-    for ri, row in enumerate(df.itertuples(index=False), 2):
-        diferencia = row[-1]
-        tiene_diff = abs(diferencia) > 1 if isinstance(diferencia, (int, float)) else False
-        row_fill = yellow_fill if tiene_diff else (even_fill if ri % 2 == 0 else odd_fill)
-        for ci, val in enumerate(row, 1):
-            cell = ws.cell(row=ri, column=ci, value=val)
-            cell.fill = row_fill
-            cell.border = border
-            cell.alignment = Alignment(vertical="center")
-
-    ws.freeze_panes = "A2"
-    wb.save(output)
-    return output.getvalue()
-
 # ─────────────────────────────────────────────
+def generar_log_excel(dfs):
+    df = pd.concat(dfs, ignore_index=True)
+    cols_int = [c for c in df.columns if c.startswith('_') and c not in
+        ('_total_haberes_afectos','_total_haberes_exentos','_total_descuentos_legales','_total_otros_descuentos')]
+    df = df.drop(columns=cols_int, errors='ignore')
+    df = df.rename(columns={'_total_haberes_afectos':'Total haberes afectos',
+        '_total_haberes_exentos':'Total haberes exentos',
+        '_total_descuentos_legales':'Total descuentos legales',
+        '_total_otros_descuentos':'Total otros descuentos'})
+    df['Suma de haberes']   = df['Total haberes afectos'] + df['Total haberes exentos']
+    df['Total descuentos']  = df['Total descuentos legales'] + df['Total otros descuentos']
+    df['Liquido calculado'] = df['Suma de haberes'] - df['Total descuentos']
+    col_liq = next((c for c in df.columns if '5501' in c), None)
+    df['Diferencia'] = (df['Liquido calculado'] - pd.to_numeric(df[col_liq], errors='coerce').fillna(0)) if col_liq else 0
+    out_buf = io.BytesIO()
+    wb2 = Workbook(); ws2 = wb2.active; ws2.title = 'Log validacion'
+    hf=PatternFill('solid',fgColor='1A2744'); hfont=Font(bold=True,color='FFFFFF',size=10)
+    yf=PatternFill('solid',fgColor='FFFF00'); ef=PatternFill('solid',fgColor='EAF0F8')
+    wf=PatternFill('solid',fgColor='FFFFFF')
+    brd=Border(bottom=Side(style='thin',color='E8EDF5'),right=Side(style='thin',color='E8EDF5'))
+    for ci,col in enumerate(df.columns,1):
+        cell=ws2.cell(row=1,column=ci,value=col); cell.fill=hf; cell.font=hfont
+        cell.alignment=Alignment(horizontal='center',vertical='center')
+        ws2.column_dimensions[cell.column_letter].width=max(len(str(col))+4,14)
+    for ri,row in enumerate(df.itertuples(index=False),2):
+        diff=row[-1]; rfill=yf if (isinstance(diff,(int,float)) and abs(diff)>1) else (ef if ri%2==0 else wf)
+        for ci,val in enumerate(row,1):
+            cell=ws2.cell(row=ri,column=ci,value=val); cell.fill=rfill
+            cell.border=brd; cell.alignment=Alignment(vertical='center')
+    ws2.freeze_panes='A2'; wb2.save(out_buf)
+    return out_buf.getvalue()
+
 # INTERFAZ PRINCIPAL
 # ─────────────────────────────────────────────
 
@@ -1143,11 +1124,11 @@ with nav_migracion:
 
                     # Obtener fecha de proceso
                     if es_rexplus and "Fecha de proceso" in df.columns:
-                        fecha_proceso = str(df["Fecha de proceso"].iloc[0])[:7].strip().strip("'\"")
+                        df["_fecha_proceso"] = df["Fecha de proceso"].astype(str).str[:7].str.strip().str.strip("'"")
                     else:
                         fecha_proceso = extraer_fecha_proceso(archivo.name)
 
-                    df["_fecha_proceso"] = fecha_proceso
+
                     dfs.append(df)
 
             st.session_state["_validacion_ok"]  = True
