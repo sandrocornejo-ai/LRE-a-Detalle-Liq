@@ -669,7 +669,9 @@ def generar_filas_salida(df, fecha_proceso, refs):
         rut = row.get("Rut trabajador (1101)", "")
 
         # Lookup empresa
-        empresa_salida = str(row.get("Id de empresa", "") or "").strip()
+        _emp_raw = row.get("Id de empresa", "")
+        _emp_num = pd.to_numeric(_emp_raw, errors="coerce")
+        empresa_salida = str(int(_emp_num)) if not pd.isna(_emp_num) else str(_emp_raw or "").strip()
         if not empresa_salida and not empleados.empty and "Rut" in empleados.columns:
             emp_row = empleados[empleados["Rut"] == rut]
             if not emp_row.empty:
