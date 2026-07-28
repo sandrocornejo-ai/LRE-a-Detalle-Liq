@@ -933,10 +933,16 @@ def generar_log_excel(dfs):
         cell=ws2.cell(row=1,column=ci,value=col); cell.fill=hf; cell.font=hfont
         cell.alignment=Alignment(horizontal='center',vertical='center')
         ws2.column_dimensions[cell.column_letter].width=max(len(str(col))+4,14)
+    cols_list = list(df.columns)
+    cols_amarillas = {"Total haberes afectos","Total haberes exentos","Total descuentos legales",
+        "Total otros descuentos","Suma de haberes","Total descuentos","Liquido calculado","Diferencia"}
+    idx_amarillas = {i+1 for i,c in enumerate(cols_list) if c in cols_amarillas}
     for ri,row in enumerate(df.itertuples(index=False),2):
-        diff=row[-1]; rfill=yf if (isinstance(diff,(int,float)) and abs(diff)>1) else (ef if ri%2==0 else wf)
+        diff=row[-1]; row_diff=(isinstance(diff,(int,float)) and abs(diff)>1)
+        base_fill = ef if ri%2==0 else wf
         for ci,val in enumerate(row,1):
-            cell=ws2.cell(row=ri,column=ci,value=val); cell.fill=rfill
+            cell=ws2.cell(row=ri,column=ci,value=val)
+            cell.fill = yf if (ci in idx_amarillas or row_diff) else base_fill
             cell.border=brd; cell.alignment=Alignment(vertical='center')
     ws2.freeze_panes='A2'; wb2.save(out_buf)
     return out_buf.getvalue()
