@@ -476,7 +476,7 @@ def safe_sum(df, cols):
     cols_presentes = [c for c in cols if c in df.columns]
     if not cols_presentes:
         return pd.Series(0, index=df.index)
-    return df[cols_presentes].fillna(0).sum(axis=1)
+    return df[cols_presentes].apply(pd.to_numeric, errors="coerce").fillna(0).sum(axis=1)
 
 def get_col(df, col, default=0):
     """Obtiene una columna del df o retorna default si no existe."""
