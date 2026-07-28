@@ -690,10 +690,10 @@ def generar_filas_salida(df, fecha_proceso, refs):
 
         dias_licencia = row.get("Nro días de licencia médica en el mes(1116)",
                          row.get("Nro días de licencia médica", None))
-        dias_licencia = int(pd.to_numeric(dias_licencia, errors="coerce") or 0)
+        _lic = pd.to_numeric(dias_licencia, errors="coerce"); dias_licencia = 0 if pd.isna(_lic) else int(_lic)
         _dias_trab_raw = row.get("Nro días trabajados en el mes(1115)",
                           row.get("Nro días trabajados", 0))
-        _dias_trab_raw = int(pd.to_numeric(_dias_trab_raw, errors="coerce") or 0)
+        _trab = pd.to_numeric(_dias_trab_raw, errors="coerce"); _dias_trab_raw = 0 if pd.isna(_trab) else int(_trab)
         dias_trabajados = max(0, _dias_trab_raw - dias_licencia)
         dias_vacaciones = row.get("Nro días de vacaciones en el mes(1117)", 0) or 0
         sueldo = row.get("Sueldo(2101)", 0) or 0
