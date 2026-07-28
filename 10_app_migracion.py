@@ -1145,12 +1145,15 @@ with nav_migracion:
             st.session_state["_refs_empl"]      = refs.get("listado_empleados", pd.DataFrame())
             st.session_state["_refs_params"]    = refs.get("parametros", pd.DataFrame())
             st.session_state["_nombre_empresa"] = archivos[0].name[:10]
+            import os as _os
+            st.session_state["_nombre_archivo"] = _os.path.splitext(archivos[0].name)[0]
 
         if st.session_state.get("_validacion_ok"):
             _todos_errores  = st.session_state["_todos_errores"]
             _dfs            = st.session_state["_dfs"]
             _refs_empl      = st.session_state["_refs_empl"]
             _nombre_empresa = st.session_state["_nombre_empresa"]
+            _nombre_archivo = st.session_state.get("_nombre_archivo", _nombre_empresa)
 
             st.markdown('<hr class="rex-divider">', unsafe_allow_html=True)
             st.markdown("### 🔍 Resultado de validaciones")
@@ -1169,7 +1172,7 @@ with nav_migracion:
                     st.download_button(
                         label="⬇️ Descargar log de errores (.xlsx)",
                         data=xlsx_log,
-                        file_name=f"log_errores_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                        file_name=f"Log_{_nombre_archivo}.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                     )
             else:
