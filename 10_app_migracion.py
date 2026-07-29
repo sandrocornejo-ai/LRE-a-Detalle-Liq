@@ -1069,8 +1069,13 @@ with nav_migracion:
                 try:
                     df_muestra = pd.read_excel(primer_archivo, nrows=1, engine="openpyxl")
                 except Exception:
-                    primer_archivo.seek(0)
-                    df_muestra = pd.read_excel(primer_archivo, nrows=1, engine="calamine")
+                    try:
+                        primer_archivo.seek(0)
+                        df_muestra = pd.read_excel(primer_archivo, nrows=1, engine="calamine")
+                    except Exception:
+                        primer_archivo.seek(0)
+                        _html_dfs = pd.read_html(primer_archivo)
+                        df_muestra = _html_dfs[0].head(1) if _html_dfs else pd.DataFrame()
             else:
                 try:
                     df_muestra = pd.read_csv(primer_archivo, encoding="utf-8-sig", sep=None, engine="python", nrows=1)
@@ -1114,8 +1119,13 @@ with nav_migracion:
                         try:
                             df = pd.read_excel(archivo, engine="openpyxl")
                         except Exception:
-                            archivo.seek(0)
-                            df = pd.read_excel(archivo, engine="calamine")
+                            try:
+                                archivo.seek(0)
+                                df = pd.read_excel(archivo, engine="calamine")
+                            except Exception:
+                                archivo.seek(0)
+                                _html_dfs = pd.read_html(archivo)
+                                df = _html_dfs[0] if _html_dfs else pd.DataFrame()
                         df["_fila_csv"] = range(2, len(df) + 2)
                     else:
                         for enc in ("utf-8-sig", "utf-8", "latin-1", "cp1252"):
