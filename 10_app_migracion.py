@@ -1003,8 +1003,8 @@ with nav_migracion:
     with col_up1:
         st.markdown("#### 📤 Subir archivos CSV")
         archivos = st.file_uploader(
-            "Selecciona uno o más archivos CSV de Previred",
-            type=["csv"],
+            "Selecciona uno o más archivos CSV o Excel de Previred",
+            type=["csv", "xlsx", "xls"],
             accept_multiple_files=True,
             help="Los archivos deben corresponder al mismo RUT empresa (primeros 10 caracteres del nombre)"
         )
