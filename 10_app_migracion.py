@@ -1003,8 +1003,8 @@ with nav_migracion:
     with col_up1:
         st.markdown("#### 📤 Subir archivos CSV")
         archivos = st.file_uploader(
-            "Selecciona uno o más archivos CSV o Excel de Previred",
-            type=["csv", "xlsx", "xls"],
+            "Selecciona uno o más archivos CSV de Previred",
+            type=["csv"],
             accept_multiple_files=True,
             help="Los archivos deben corresponder al mismo RUT empresa (primeros 10 caracteres del nombre)"
         )
@@ -1065,23 +1065,11 @@ with nav_migracion:
             primer_archivo = archivos[0]
             primer_archivo.seek(0)
             _ext0 = primer_archivo.name.lower().split(".")[-1]
-            if _ext0 in ("xlsx", "xls"):
-                try:
-                    df_muestra = pd.read_excel(primer_archivo, nrows=1, engine="openpyxl")
-                except Exception:
-                    try:
-                        primer_archivo.seek(0)
-                        df_muestra = pd.read_excel(primer_archivo, nrows=1, engine="calamine")
-                    except Exception:
-                        primer_archivo.seek(0)
-                        _html_dfs = pd.read_html(primer_archivo)
-                        df_muestra = _html_dfs[0].head(1) if _html_dfs else pd.DataFrame()
-            else:
-                try:
-                    df_muestra = pd.read_csv(primer_archivo, encoding="utf-8-sig", sep=None, engine="python", nrows=1)
-                except Exception:
-                    primer_archivo.seek(0)
-                    df_muestra = pd.read_csv(primer_archivo, encoding="latin-1", sep=None, engine="python", nrows=1)
+            try:
+                df_muestra = pd.read_csv(primer_archivo, encoding="utf-8-sig", sep=None, engine="python", nrows=1)
+            except Exception:
+                primer_archivo.seek(0)
+                df_muestra = pd.read_csv(primer_archivo, encoding="latin-1", sep=None, engine="python", nrows=1)
             primer_archivo.seek(0)
             es_rexplus = detectar_formato_rexplus(df_muestra)
 
@@ -1113,22 +1101,7 @@ with nav_migracion:
 
             with st.spinner("Procesando archivos..."):
                 for archivo in archivos:
-                    _ext = archivo.name.lower().split(".")[-1]
-                    if _ext in ("xlsx", "xls"):
-                        archivo.seek(0)
-                        try:
-                            df = pd.read_excel(archivo, engine="openpyxl")
-                        except Exception:
-                            try:
-                                archivo.seek(0)
-                                df = pd.read_excel(archivo, engine="calamine")
-                            except Exception:
-                                archivo.seek(0)
-                                _html_dfs = pd.read_html(archivo)
-                                df = _html_dfs[0] if _html_dfs else pd.DataFrame()
-                        df["_fila_csv"] = range(2, len(df) + 2)
-                    else:
-                        for enc in ("utf-8-sig", "utf-8", "latin-1", "cp1252"):
+                    for enc in ("utf-8-sig", "utf-8", "latin-1", "cp1252"):
                             try:
                                 archivo.seek(0)
                                 df = pd.read_csv(archivo, encoding=enc, sep=None, engine="python")
