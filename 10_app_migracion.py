@@ -1102,16 +1102,16 @@ with nav_migracion:
             with st.spinner("Procesando archivos..."):
                 for archivo in archivos:
                     for enc in ("utf-8-sig", "utf-8", "latin-1", "cp1252"):
-                            try:
-                                archivo.seek(0)
-                                df = pd.read_csv(archivo, encoding=enc, sep=None, engine="python")
-                                df["_fila_csv"] = range(2, len(df) + 2)
-                                break
-                            except (UnicodeDecodeError, Exception):
-                                continue
-                        else:
-                            st.error(f"❌ No se pudo leer {archivo.name}. Verifica que sea un CSV o Excel válido.")
-                            st.stop()
+                        try:
+                            archivo.seek(0)
+                            df = pd.read_csv(archivo, encoding=enc, sep=None, engine="python")
+                            df["_fila_csv"] = range(2, len(df) + 2)
+                            break
+                        except (UnicodeDecodeError, Exception):
+                            continue
+                    else:
+                        st.error(f"❌ No se pudo leer {archivo.name}. Verifica que sea un CSV válido.")
+                        st.stop()
 
                     # ── Normalizar si es formato Rex+ ──
                     if es_rexplus:
