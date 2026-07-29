@@ -773,6 +773,10 @@ def generar_filas_dt(df, fecha_proceso, refs, df_empleados, df_empresas_externo=
                 monto = safe_num(row.get(col_csv, 0))
             montos_por_concepto[id_concepto] = montos_por_concepto.get(id_concepto, 0) + monto
 
+        # ── Asegurar que totalesEmpl siempre esté presente ──
+        if "totalesEmpl" not in montos_por_concepto:
+            montos_por_concepto["totalesEmpl"] = 0
+
         # ── Generar fila por cada concepto ──
         conceptos_siempre = {"impuesto", "cesEmpleado", "totalesEmpl"}
         if licencia_mes_completo:
