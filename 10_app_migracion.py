@@ -1066,7 +1066,8 @@ with nav_migracion:
             primer_archivo.seek(0)
             _ext0 = primer_archivo.name.lower().split(".")[-1]
             if _ext0 in ("xlsx", "xls"):
-                df_muestra = pd.read_excel(primer_archivo, nrows=1)
+                _engine0 = "openpyxl" if _ext0 == "xlsx" else "xlrd"
+                df_muestra = pd.read_excel(primer_archivo, nrows=1, engine=_engine0)
             else:
                 try:
                     df_muestra = pd.read_csv(primer_archivo, encoding="utf-8-sig", sep=None, engine="python", nrows=1)
@@ -1106,8 +1107,9 @@ with nav_migracion:
                 for archivo in archivos:
                     _ext = archivo.name.lower().split(".")[-1]
                     if _ext in ("xlsx", "xls"):
+                        _engine = "openpyxl" if _ext == "xlsx" else "xlrd"
                         archivo.seek(0)
-                        df = pd.read_excel(archivo)
+                        df = pd.read_excel(archivo, engine=_engine)
                         df["_fila_csv"] = range(2, len(df) + 2)
                     else:
                         for enc in ("utf-8-sig", "utf-8", "latin-1", "cp1252"):
