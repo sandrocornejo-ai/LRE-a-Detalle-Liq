@@ -1064,11 +1064,15 @@ with nav_migracion:
             # ── Detectar formato leyendo el primer archivo ──
             primer_archivo = archivos[0]
             primer_archivo.seek(0)
-            try:
-                df_muestra = pd.read_csv(primer_archivo, encoding="utf-8-sig", sep=None, engine="python", nrows=1)
-            except Exception:
-                primer_archivo.seek(0)
-                df_muestra = pd.read_csv(primer_archivo, encoding="latin-1", sep=None, engine="python", nrows=1)
+            _ext0 = primer_archivo.name.lower().split(".")[-1]
+            if _ext0 in ("xlsx", "xls"):
+                df_muestra = pd.read_excel(primer_archivo, nrows=1)
+            else:
+                try:
+                    df_muestra = pd.read_csv(primer_archivo, encoding="utf-8-sig", sep=None, engine="python", nrows=1)
+                except Exception:
+                    primer_archivo.seek(0)
+                    df_muestra = pd.read_csv(primer_archivo, encoding="latin-1", sep=None, engine="python", nrows=1)
             primer_archivo.seek(0)
             es_rexplus = detectar_formato_rexplus(df_muestra)
 
@@ -1100,17 +1104,23 @@ with nav_migracion:
 
             with st.spinner("Procesando archivos..."):
                 for archivo in archivos:
-                    for enc in ("utf-8-sig", "utf-8", "latin-1", "cp1252"):
-                        try:
-                            archivo.seek(0)
-                            df = pd.read_csv(archivo, encoding=enc, sep=None, engine="python")
-                            df["_fila_csv"] = range(2, len(df) + 2)
-                            break
-                        except (UnicodeDecodeError, Exception):
-                            continue
+                    _ext = archivo.name.lower().split(".")[-1]
+                    if _ext in ("xlsx", "xls"):
+                        archivo.seek(0)
+                        df = pd.read_excel(archivo)
+                        df["_fila_csv"] = range(2, len(df) + 2)
                     else:
-                        st.error(f"❌ No se pudo leer {archivo.name}. Verifica que sea un CSV válido.")
-                        st.stop()
+                        for enc in ("utf-8-sig", "utf-8", "latin-1", "cp1252"):
+                            try:
+                                archivo.seek(0)
+                                df = pd.read_csv(archivo, encoding=enc, sep=None, engine="python")
+                                df["_fila_csv"] = range(2, len(df) + 2)
+                                break
+                            except (UnicodeDecodeError, Exception):
+                                continue
+                        else:
+                            st.error(f"❌ No se pudo leer {archivo.name}. Verifica que sea un CSV o Excel válido.")
+                            st.stop()
 
                     # ── Normalizar si es formato Rex+ ──
                     if es_rexplus:
