@@ -774,7 +774,7 @@ def generar_filas_dt(df, fecha_proceso, refs, df_empleados, df_empresas_externo=
             montos_por_concepto[id_concepto] = montos_por_concepto.get(id_concepto, 0) + monto
 
         # ── Generar fila por cada concepto ──
-        conceptos_siempre = {"impuesto", "cesEmpleado"}
+        conceptos_siempre = {"impuesto", "cesEmpleado", "totalesEmpl"}
         if licencia_mes_completo:
             conceptos_siempre = conceptos_siempre | CONCEPTOS_LICENCIA_COMPLETA
             # Asegurar que todos los conceptos de licencia completa estén presentes
