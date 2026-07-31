@@ -1084,6 +1084,13 @@ with nav_migracion:
             except Exception:
                 archivo_params.seek(0)
                 df_params = pd.read_excel(archivo_params, sheet_name=0, dtype={"mes_Proc": str})
+            if "mes_Proc" not in df_params.columns:
+                st.markdown(
+                    '<div class="alert-error">❌ El archivo de parámetros no contiene la columna <b>mes_Proc</b>. '
+                    'Verifica que estás subiendo <b>parametrosMensuales.xlsx</b> y que la hoja correcta tiene esa columna.</div>',
+                    unsafe_allow_html=True
+                )
+                st.stop()
             df_params["mes_Proc"] = df_params["mes_Proc"].astype(str).str.strip()
             refs["parametros"] = df_params
 
