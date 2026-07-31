@@ -1223,6 +1223,19 @@ def render_modulo_dt(refs_compartidas):
 
     st.markdown(f'<div class="alert-success">📅 Fecha de proceso: <b>{fecha_proceso}</b></div>', unsafe_allow_html=True)
 
+    # ── Configuración de Fase ──
+    usa_fase = st.checkbox("¿El cliente usa Fase?", key="dt_usa_fase")
+    numero_fase = 0
+    if usa_fase:
+        numero_fase = st.number_input(
+            "Número de Fase",
+            min_value=1,
+            step=1,
+            value=1,
+            key="dt_numero_fase",
+            help="Ingresa el número de fase (entero mayor a 0)."
+        )
+
     # ── Botón ejecutar ──
     if st.button("▶ Ejecutar proceso DT", key="dt_btn_ejecutar"):
         st.session_state.pop("dt_resultado", None)
@@ -1312,6 +1325,16 @@ def render_modulo_dt(refs_compartidas):
             df_salida, df_salida_sin_contrato, df_log_contratos = generar_filas_dt(
                 df_dt, fecha_proceso, refs_dt, df_empleados, df_empresas_externo=df_empresas_periodo
             )
+
+            # ── Aplicar o eliminar columna Fase según elección del usuario ──
+            if usa_fase and numero_fase >= 1:
+                df_salida["Fase"] = int(numero_fase)
+                if not df_salida_sin_contrato.empty:
+                    df_salida_sin_contrato["Fase"] = int(numero_fase)
+            else:
+                df_salida = df_salida.drop(columns=["Fase"], errors="ignore")
+                if not df_salida_sin_contrato.empty:
+                    df_salida_sin_contrato = df_salida_sin_contrato.drop(columns=["Fase"], errors="ignore")
 
             barra.progress(94, text="Generando archivos Excel...")
             excel_bytes    = generar_excel_dt(df_salida) if not df_salida.empty else None
