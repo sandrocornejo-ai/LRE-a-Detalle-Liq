@@ -1223,15 +1223,6 @@ def render_modulo_dt(refs_compartidas):
 
     st.markdown(f'<div class="alert-success">📅 Fecha de proceso: <b>{fecha_proceso}</b></div>', unsafe_allow_html=True)
 
-    # ── Configuración de Zona Extrema ──
-    st.markdown('<hr class="rex-divider">', unsafe_allow_html=True)
-    st.markdown('''<div style="background:#FFFBEB; border:2px solid #F59E0B; border-radius:8px; padding:14px 20px; margin-bottom:12px;">
-<b style="font-size:1rem; color:#B45309;">🗺️ Configuración de Zona Extrema</b><br>
-<span style="color:#374151; font-size:0.9rem;">Activa si el cliente tiene trabajadores acogidos al <b>DL 889 – Rebaja Zona Extrema</b> (columna 3167).<br>
-Si no se activa, el campo <b>Rebaja por zona extrema</b> se enviará en 0.</span>
-</div>''', unsafe_allow_html=True)
-    usa_zona = st.checkbox("**¿El cliente tiene trabajadores en zona extrema?**", key="dt_usa_zona")
-
     # ── Configuración de Fase (destacada visualmente) ──
     st.markdown('<hr class="rex-divider">', unsafe_allow_html=True)
     st.markdown('''<div style="background:#EFF6FF; border:2px solid #3B82F6; border-radius:8px; padding:14px 20px; margin-bottom:12px;">
@@ -1411,12 +1402,6 @@ Si no se activa, el campo <b>Rebaja por zona extrema</b> se enviará en 0.</span
             st.dataframe(df_salida.head(50), use_container_width=True, hide_index=True)
 
         barra.progress(90, text="Aplicando configuraciones...")
-        # Zona extrema: si no aplica, zerear columna
-        if not usa_zona:
-            df_salida["Rebaja por zona extrema"] = 0
-            if not df_salida_sin_contrato.empty:
-                df_salida_sin_contrato["Rebaja por zona extrema"] = 0
-
         if usa_fase and numero_fase >= 1:
             df_salida["Fase"] = int(numero_fase)
             if not df_salida_sin_contrato.empty:
