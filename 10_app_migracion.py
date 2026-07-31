@@ -1191,9 +1191,8 @@ with nav_migracion:
                     Los registros de todos los archivos cuadran sin diferencias.
                 </div>""", unsafe_allow_html=True)
 
-                # ── Configuración de Fase ──
+                # ── Configuración de Fase (debe definirse ANTES de los botones) ──
                 usa_fase = st.checkbox("¿El cliente usa Fase?", key="mig_usa_fase")
-                numero_fase = 0
                 if usa_fase:
                     numero_fase = st.number_input(
                         "Número de Fase",
@@ -1203,6 +1202,8 @@ with nav_migracion:
                         key="mig_numero_fase",
                         help="Ingresa el número de fase (entero mayor a 0)."
                     )
+                else:
+                    numero_fase = 0
 
                 st.markdown("#### ¿Desea generar el archivo de salida?")
                 col_a, col_b, col_c, _ = st.columns([1, 1, 1, 4])
@@ -1234,7 +1235,6 @@ with nav_migracion:
                         df_out = generar_filas_salida(grupo, fp, refs)
                         filas_salida.append(df_out)
                     df_final = pd.concat(filas_salida, ignore_index=True) if filas_salida else pd.DataFrame()
-                    # ── Aplicar o eliminar columna Fase ──
                     if usa_fase and numero_fase >= 1:
                         df_final["Fase"] = int(numero_fase)
                     else:
