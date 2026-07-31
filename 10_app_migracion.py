@@ -714,7 +714,7 @@ def generar_filas_salida(df, fecha_proceso, refs):
         col_3154 = _n(row.get("Cotización adicional trabajo pesado - trabajador(3154)", 0))
         col_3156 = _n(row.get("Cotización APVi Mod B hasta UF50(3156)", 0))
         salud_afecto = min(col_3143 + col_3144, tope_salud) if tope_salud > 0 else col_3143 + col_3144
-        rebaja_llss_impuesto = col_3141 + col_3151 + col_3154 + col_3156 + salud_afecto + _n(rebaja_zona)
+        rebaja_llss_impuesto = col_3141 + col_3151 + col_3154 + col_3156 + salud_afecto + _n(row.get("Rebaja zona extrema DL 889 (3167)", 0))
         col_1152 = row.get("Org. administrador ley 16.744(1152)", "")
         col_3110 = row.get("Crédito social CCAF(3110)", 0) or 0
         rebaja_zona = row.get("Rebaja zona extrema DL 889 (3167)", 0) or 0
