@@ -1191,17 +1191,34 @@ with nav_migracion:
                     Los registros de todos los archivos cuadran sin diferencias.
                 </div>""", unsafe_allow_html=True)
 
-                # ── Configuración de Fase (debe definirse ANTES de los botones) ──
-                usa_fase = st.checkbox("¿El cliente usa Fase?", key="mig_usa_fase")
+                # ── Configuración de Zona Extrema ──
+                st.markdown('<hr class="rex-divider">', unsafe_allow_html=True)
+                st.markdown('''<div style="background:#FFFBEB; border:2px solid #F59E0B; border-radius:8px; padding:14px 20px; margin-bottom:12px;">
+<b style="font-size:1rem; color:#B45309;">🗺️ Configuración de Zona Extrema</b><br>
+<span style="color:#374151; font-size:0.9rem;">Activa si el cliente tiene trabajadores acogidos al <b>DL 889 – Rebaja Zona Extrema</b> (columna 3167).<br>
+Si no se activa, el campo <b>Rebaja por zona extrema</b> se enviará en 0.</span>
+</div>''', unsafe_allow_html=True)
+                usa_zona = st.checkbox("**¿El cliente tiene trabajadores en zona extrema?**", key="mig_usa_zona")
+
+                # ── Configuración de Fase (destacada visualmente) ──
+                st.markdown('<hr class="rex-divider">', unsafe_allow_html=True)
+                st.markdown('''<div style="background:#EFF6FF; border:2px solid #3B82F6; border-radius:8px; padding:14px 20px; margin-bottom:12px;">
+<b style="font-size:1rem; color:#1D4ED8;">⚙️ Configuración de Fase</b><br>
+<span style="color:#374151; font-size:0.9rem;">Si el cliente trabaja con el campo <b>Fase</b> en Rex+, actívalo antes de generar el archivo.</span>
+</div>''', unsafe_allow_html=True)
+                col_fase_chk, col_fase_num, _ = st.columns([1, 1, 2])
+                with col_fase_chk:
+                    usa_fase = st.checkbox("**¿El cliente usa Fase?**", key="mig_usa_fase")
                 if usa_fase:
-                    numero_fase = st.number_input(
-                        "Número de Fase",
-                        min_value=1,
-                        step=1,
-                        value=1,
-                        key="mig_numero_fase",
-                        help="Ingresa el número de fase (entero mayor a 0)."
-                    )
+                    with col_fase_num:
+                        numero_fase = st.number_input(
+                            "Número de Fase",
+                            min_value=1,
+                            step=1,
+                            value=1,
+                            key="mig_numero_fase",
+                            help="Ingresa el número de fase (entero mayor a 0)."
+                        )
                 else:
                     numero_fase = 0
 
@@ -1235,6 +1252,9 @@ with nav_migracion:
                         df_out = generar_filas_salida(grupo, fp, refs)
                         filas_salida.append(df_out)
                     df_final = pd.concat(filas_salida, ignore_index=True) if filas_salida else pd.DataFrame()
+                    # Zona extrema: si no aplica, zerear columna
+                    if not usa_zona:
+                        df_final["Rebaja por zona extrema"] = 0
                     if usa_fase and numero_fase >= 1:
                         df_final["Fase"] = int(numero_fase)
                     else:

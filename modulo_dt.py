@@ -1223,17 +1223,34 @@ def render_modulo_dt(refs_compartidas):
 
     st.markdown(f'<div class="alert-success">📅 Fecha de proceso: <b>{fecha_proceso}</b></div>', unsafe_allow_html=True)
 
-    # ── Configuración de Fase ──
-    usa_fase = st.checkbox("¿El cliente usa Fase?", key="dt_usa_fase")
+    # ── Configuración de Zona Extrema ──
+    st.markdown('<hr class="rex-divider">', unsafe_allow_html=True)
+    st.markdown('''<div style="background:#FFFBEB; border:2px solid #F59E0B; border-radius:8px; padding:14px 20px; margin-bottom:12px;">
+<b style="font-size:1rem; color:#B45309;">🗺️ Configuración de Zona Extrema</b><br>
+<span style="color:#374151; font-size:0.9rem;">Activa si el cliente tiene trabajadores acogidos al <b>DL 889 – Rebaja Zona Extrema</b> (columna 3167).<br>
+Si no se activa, el campo <b>Rebaja por zona extrema</b> se enviará en 0.</span>
+</div>''', unsafe_allow_html=True)
+    usa_zona = st.checkbox("**¿El cliente tiene trabajadores en zona extrema?**", key="dt_usa_zona")
+
+    # ── Configuración de Fase (destacada visualmente) ──
+    st.markdown('<hr class="rex-divider">', unsafe_allow_html=True)
+    st.markdown('''<div style="background:#EFF6FF; border:2px solid #3B82F6; border-radius:8px; padding:14px 20px; margin-bottom:12px;">
+<b style="font-size:1rem; color:#1D4ED8;">⚙️ Configuración de Fase</b><br>
+<span style="color:#374151; font-size:0.9rem;">Si el cliente trabaja con el campo <b>Fase</b> en Rex+, actívalo antes de generar el archivo.</span>
+</div>''', unsafe_allow_html=True)
+    col_fase_chk, col_fase_num, _ = st.columns([1, 1, 2])
+    with col_fase_chk:
+        usa_fase = st.checkbox("**¿El cliente usa Fase?**", key="dt_usa_fase")
     if usa_fase:
-        numero_fase = st.number_input(
-            "Número de Fase",
-            min_value=1,
-            step=1,
-            value=1,
-            key="dt_numero_fase",
-            help="Ingresa el número de fase (entero mayor a 0)."
-        )
+        with col_fase_num:
+            numero_fase = st.number_input(
+                "Número de Fase",
+                min_value=1,
+                step=1,
+                value=1,
+                key="dt_numero_fase",
+                help="Ingresa el número de fase (entero mayor a 0)."
+            )
     else:
         numero_fase = 0
 
@@ -1245,72 +1262,80 @@ def render_modulo_dt(refs_compartidas):
             # Leer CSV DT
             df_dt = leer_csv_dt(archivo_dt)
 
-                # ── Validar estructura del CSV DT (independiente del nombre del archivo) ──
-                if df_dt.empty:
-                    st.markdown(f'<div class="alert-error">❌ <b>{archivo_dt.name}</b>: Archivo no tiene la estructura esperada, corrija antes de continuar.</div>', unsafe_allow_html=True)
+            # ── Validar estructura del CSV DT (independiente del nombre del archivo) ──
+            if df_dt.empty:
+                barra.empty()
+                st.markdown(f'<div class="alert-error">❌ <b>{archivo_dt.name}</b>: Archivo no tiene la estructura esperada, corrija antes de continuar.</div>', unsafe_allow_html=True)
+                st.stop()
+            if find_col(df_dt, COD_RUT) is None:
+                barra.empty()
+                st.markdown(f'<div class="alert-error">❌ <b>{archivo_dt.name}</b>: Archivo no tiene la estructura esperada, corrija antes de continuar.</div>', unsafe_allow_html=True)
+                st.stop()
+
+            barra.progress(25, text="Validando columnas LRE...")
+            # Validar columnas contra LRE_COLUMNAS
+            diferencias_cols, desconocidas_cols = validar_columnas_lre(df_dt)
+            if diferencias_cols or desconocidas_cols:
+                mostrar_aviso_columnas(diferencias_cols, desconocidas_cols)
+
+            barra.progress(40, text="Leyendo empleados y empresas...")
+            # Leer empleados
+            df_empleados = cargar_empleados(archivo_empleados)
+
+            # ── Validar estructura de listado_empleados ──
+            ok_emp, faltantes_emp = validar_estructura(df_empleados, ["Rut", "Empresa", "Contrato"])
+            if not ok_emp:
+                barra.empty()
+                st.markdown(f'<div class="alert-error">❌ <b>{archivo_empleados.name}</b>: Archivo no tiene la estructura esperada, corrija antes de continuar.</div>', unsafe_allow_html=True)
+                st.stop()
+
+            # Leer empresas
+            df_empresas_periodo = pd.read_excel(archivo_empresas, header=1)
+            df_empresas_periodo.columns = [str(c).strip() for c in df_empresas_periodo.columns]
+            if "Nombre" in df_empresas_periodo.columns:
+                df_empresas_periodo["Nombre"] = df_empresas_periodo["Nombre"].astype(str).str.strip()
+            if "Empresa" in df_empresas_periodo.columns:
+                df_empresas_periodo["Empresa"] = df_empresas_periodo["Empresa"].astype(str).str.strip()
+
+            # ── Validar estructura de listado_empresas ──
+            ok_emp2, faltantes_emp2 = validar_estructura(df_empresas_periodo, ["Nombre", "Empresa", "Cotización Mutual"])
+            if not ok_emp2:
+                barra.empty()
+                st.markdown(f'<div class="alert-error">❌ <b>{archivo_empresas.name}</b>: Archivo no tiene la estructura esperada, corrija antes de continuar.</div>', unsafe_allow_html=True)
+                st.stop()
+
+            barra.progress(55, text="Leyendo parámetros mensuales...")
+            # Leer parámetros mensuales
+            df_params_periodo = pd.read_excel(archivo_params_dt)
+
+            # ── Validar estructura de parámetros mensuales ──
+            ok_par, faltantes_par = validar_estructura(df_params_periodo, ["mes_Proc", "topeSalud_pesos", "topeImp_pesos_afp", "topeCes_pesos", "sis"])
+            if not ok_par:
+                barra.empty()
+                st.markdown(f'<div class="alert-error">❌ <b>{archivo_params_dt.name}</b>: Archivo no tiene la estructura esperada, corrija antes de continuar.</div>', unsafe_allow_html=True)
+                st.stop()
+
+            # Verificar que el mes existe en los parámetros
+            if "mes_Proc" in df_params_periodo.columns:
+                df_params_periodo["mes_Proc"] = df_params_periodo["mes_Proc"].astype(str).str.strip()
+                if fecha_proceso not in df_params_periodo["mes_Proc"].values:
+                    barra.empty()
+                    st.markdown(f'<div class="alert-error">❌ <b>No se encontraron parámetros para {fecha_proceso}</b> en el archivo subido.</div>', unsafe_allow_html=True)
                     st.stop()
-                if find_col(df_dt, COD_RUT) is None:
-                    st.markdown(f'<div class="alert-error">❌ <b>{archivo_dt.name}</b>: Archivo no tiene la estructura esperada, corrija antes de continuar.</div>', unsafe_allow_html=True)
-                    st.stop()
 
-                # Validar columnas contra LRE_COLUMNAS
-                diferencias_cols, desconocidas_cols = validar_columnas_lre(df_dt)
-                if diferencias_cols or desconocidas_cols:
-                    mostrar_aviso_columnas(diferencias_cols, desconocidas_cols)
+            # Inyectar en refs
+            refs_dt = dict(refs_compartidas)
+            refs_dt["listado_empresas"] = df_empresas_periodo
+            refs_dt["parametros"] = df_params_periodo
 
-                # Leer empleados
-                df_empleados = cargar_empleados(archivo_empleados)
-
-                # ── Validar estructura de listado_empleados ──
-                ok_emp, faltantes_emp = validar_estructura(df_empleados, ["Rut", "Empresa", "Contrato"])
-                if not ok_emp:
-                    st.markdown(f'<div class="alert-error">❌ <b>{archivo_empleados.name}</b>: Archivo no tiene la estructura esperada, corrija antes de continuar.</div>', unsafe_allow_html=True)
-                    st.stop()
-
-                # Leer empresas
-                df_empresas_periodo = pd.read_excel(archivo_empresas, header=1)
-                df_empresas_periodo.columns = [str(c).strip() for c in df_empresas_periodo.columns]
-                if "Nombre" in df_empresas_periodo.columns:
-                    df_empresas_periodo["Nombre"] = df_empresas_periodo["Nombre"].astype(str).str.strip()
-                if "Empresa" in df_empresas_periodo.columns:
-                    df_empresas_periodo["Empresa"] = df_empresas_periodo["Empresa"].astype(str).str.strip()
-
-                # ── Validar estructura de listado_empresas ──
-                ok_emp2, faltantes_emp2 = validar_estructura(df_empresas_periodo, ["Nombre", "Empresa", "Cotización Mutual"])
-                if not ok_emp2:
-                    st.markdown(f'<div class="alert-error">❌ <b>{archivo_empresas.name}</b>: Archivo no tiene la estructura esperada, corrija antes de continuar.</div>', unsafe_allow_html=True)
-                    st.stop()
-
-                # Leer parámetros mensuales
-                df_params_periodo = pd.read_excel(archivo_params_dt)
-
-                # ── Validar estructura de parámetros mensuales ──
-                ok_par, faltantes_par = validar_estructura(df_params_periodo, ["mes_Proc", "topeSalud_pesos", "topeImp_pesos_afp", "topeCes_pesos", "sis"])
-                if not ok_par:
-                    st.markdown(f'<div class="alert-error">❌ <b>{archivo_params_dt.name}</b>: Archivo no tiene la estructura esperada, corrija antes de continuar.</div>', unsafe_allow_html=True)
-                    st.stop()
-
-                # Verificar que el mes existe en los parámetros
-                if "mes_Proc" in df_params_periodo.columns:
-                    df_params_periodo["mes_Proc"] = df_params_periodo["mes_Proc"].astype(str).str.strip()
-                    if fecha_proceso not in df_params_periodo["mes_Proc"].values:
-                        st.markdown(f'<div class="alert-error">❌ <b>No se encontraron parámetros para {fecha_proceso}</b> en el archivo subido.</div>', unsafe_allow_html=True)
-                        st.stop()
-
-                # Inyectar en refs
-                refs_dt = dict(refs_compartidas)
-                refs_dt["listado_empresas"] = df_empresas_periodo
-                refs_dt["parametros"] = df_params_periodo
-
-                # Ejecutar validaciones de cuadratura
-                errores_val = validar_cuadraturas_dt(df_dt, archivo_dt.name)
+            barra.progress(70, text="Validando cuadraturas...")
+            # Ejecutar validaciones de cuadratura
+            errores_val = validar_cuadraturas_dt(df_dt, archivo_dt.name)
 
         except Exception as e:
             barra.empty()
             st.markdown(f'<div class="alert-error">❌ Error al leer los archivos: <b>{e}</b></div>', unsafe_allow_html=True)
             return
-
-        barra.progress(60, text="Validando cuadraturas...")
         st.markdown('<hr class="rex-divider">', unsafe_allow_html=True)
         st.markdown("### 🔍 Resultado de validaciones")
 
@@ -1386,6 +1411,12 @@ def render_modulo_dt(refs_compartidas):
             st.dataframe(df_salida.head(50), use_container_width=True, hide_index=True)
 
         barra.progress(90, text="Aplicando configuraciones...")
+        # Zona extrema: si no aplica, zerear columna
+        if not usa_zona:
+            df_salida["Rebaja por zona extrema"] = 0
+            if not df_salida_sin_contrato.empty:
+                df_salida_sin_contrato["Rebaja por zona extrema"] = 0
+
         if usa_fase and numero_fase >= 1:
             df_salida["Fase"] = int(numero_fase)
             if not df_salida_sin_contrato.empty:
