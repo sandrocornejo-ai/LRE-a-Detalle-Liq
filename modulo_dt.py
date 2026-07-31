@@ -229,9 +229,9 @@ def safe_sum_by_codes(df, codigos):
         return pd.Series(0, index=df.index)
     return df[cols].apply(pd.to_numeric, errors="coerce").fillna(0).sum(axis=1)
 
-CONCEPTOS_AFECTO_AFP = {"mutual", "sis", "trabajoPesaEmpl", "afp", "isapre"}
+CONCEPTOS_AFECTO_AFP = {"mutual", "sis", "trabajoPesaEmpl", "trabajoPesa", "afp", "isapre"}
 CONCEPTOS_AFECTO_CES = {"cesAporteCi", "cesAporteSol", "cesEmpleado"}
-CONCEPTOS_ID_AFP     = {"sis", "afp", "trabajoPesaEmpl", "cesEmpleado", "cesAporteSol", "cesAporteCi"}
+CONCEPTOS_ID_AFP     = {"sis", "afp", "trabajoPesaEmpl", "trabajoPesa", "cesEmpleado", "cesAporteSol", "cesAporteCi"}
 
 
 # ─────────────────────────────────────────────
@@ -797,8 +797,6 @@ def generar_filas_dt(df, fecha_proceso, refs, df_empleados, df_empresas_externo=
             id_institucion = ""
             if id_concepto in CONCEPTOS_ID_AFP:
                 id_institucion = id_afp_trab
-            elif id_concepto == "apvi":
-                id_institucion = f"apv{id_afp_trab}" if id_afp_trab else ""
             elif id_concepto == "isapre":
                 id_institucion = id_isapre_trab
             elif id_concepto == "mutual":
