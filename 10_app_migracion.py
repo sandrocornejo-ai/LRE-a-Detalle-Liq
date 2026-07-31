@@ -714,7 +714,7 @@ def generar_filas_salida(df, fecha_proceso, refs):
         col_3154 = _n(row.get("Cotización adicional trabajo pesado - trabajador(3154)", 0))
         col_3156 = _n(row.get("Cotización APVi Mod B hasta UF50(3156)", 0))
         salud_afecto = min(col_3143 + col_3144, tope_salud) if tope_salud > 0 else col_3143 + col_3144
-        rebaja_llss_impuesto = col_3141 + col_3151 + col_3154 + col_3156 + salud_afecto
+        rebaja_llss_impuesto = col_3141 + col_3151 + col_3154 + col_3156 + salud_afecto + _n(rebaja_zona)
         col_1152 = row.get("Org. administrador ley 16.744(1152)", "")
         col_3110 = row.get("Crédito social CCAF(3110)", 0) or 0
         rebaja_zona = row.get("Rebaja zona extrema DL 889 (3167)", 0) or 0
@@ -740,6 +740,9 @@ def generar_filas_salida(df, fecha_proceso, refs):
             id_institucion = ""
             if id_concepto in GRUPOS_AFP:
                 id_institucion = _lookup_id(afp_inst, "id_afp", afp_empleado)
+            elif id_concepto == "apvi":
+                _id_afp = _lookup_id(afp_inst, "id_afp", afp_empleado)
+                id_institucion = f"apv{_id_afp}" if _id_afp else ""
             elif id_concepto in GRUPOS_ISAPRE:
                 id_institucion = _lookup_id(salud_inst, "id_inst", isapre_empleado)
             elif id_concepto in GRUPOS_MUTUAL:
@@ -817,10 +820,10 @@ def generar_filas_salida(df, fecha_proceso, refs):
                 "Empresa": empresa_salida,
                 "Total de rebajas por LLSS": rebaja_llss_impuesto if id_concepto == "impuesto" else 0,
                 "Rentas no gravadas": total_haberes_exentos if id_concepto == "impuesto" else 0,
-                "Rebaja por zona extrema": rebaja_zona,
+                "Rebaja por zona extrema": rebaja_zona if id_concepto == "impuesto" else 0,
                 "Jornada": "C",
                 "Días de vacaciones": dias_vacaciones,
-                "Monto Init": monto_init,
+                "Monto Init": monto_init if id_concepto == "sueldoBase" else 0,
                 "Fase": 1,
             })
 
@@ -841,10 +844,10 @@ def generar_filas_salida(df, fecha_proceso, refs):
                 "Empresa": empresa_salida,
                 "Total de rebajas por LLSS": 0,
                 "Rentas no gravadas": 0,
-                "Rebaja por zona extrema": rebaja_zona,
+                "Rebaja por zona extrema": 0,
                 "Jornada": "C",
                 "Días de vacaciones": dias_vacaciones,
-                "Monto Init": monto_init,
+                "Monto Init": 0,
                 "Fase": 1,
             })
 
@@ -865,10 +868,10 @@ def generar_filas_salida(df, fecha_proceso, refs):
                 "Empresa": empresa_salida,
                 "Total de rebajas por LLSS": 0,
                 "Rentas no gravadas": 0,
-                "Rebaja por zona extrema": rebaja_zona,
+                "Rebaja por zona extrema": 0,
                 "Jornada": "C",
                 "Días de vacaciones": dias_vacaciones,
-                "Monto Init": monto_init,
+                "Monto Init": 0,
                 "Fase": 1,
             })
 
@@ -1099,46 +1102,51 @@ with nav_migracion:
                     st.stop()
                 refs["listado_empleados"] = df_empleados_previred
 
-            with st.spinner("Procesando archivos..."):
-                for archivo in archivos:
-                    for enc in ("utf-8-sig", "utf-8", "latin-1", "cp1252"):
-                        try:
-                            archivo.seek(0)
-                            df = pd.read_csv(archivo, encoding=enc, sep=None, engine="python")
-                            df["_fila_csv"] = range(2, len(df) + 2)
-                            break
-                        except (UnicodeDecodeError, Exception):
-                            continue
-                    else:
-                        st.error(f"❌ No se pudo leer {archivo.name}. Verifica que sea un CSV válido.")
-                        st.stop()
+            barra_val = st.progress(0, text="Iniciando validaciones...")
+            n_archivos = len(archivos)
+            for i, archivo in enumerate(archivos):
+                barra_val.progress(int((i / n_archivos) * 85) + 5, text=f"Leyendo {archivo.name}...")
+                for enc in ("utf-8-sig", "utf-8", "latin-1", "cp1252"):
+                    try:
+                        archivo.seek(0)
+                        df = pd.read_csv(archivo, encoding=enc, sep=None, engine="python")
+                        df["_fila_csv"] = range(2, len(df) + 2)
+                        break
+                    except (UnicodeDecodeError, Exception):
+                        continue
+                else:
+                    barra_val.empty()
+                    st.error(f"❌ No se pudo leer {archivo.name}. Verifica que sea un CSV válido.")
+                    st.stop()
 
-                    # ── Normalizar si es formato Rex+ ──
-                    if es_rexplus:
-                        df, df_empl = normalizar_rexplus(df)
-                        df_empl_acum = pd.concat([df_empl_acum, df_empl], ignore_index=True).drop_duplicates(subset=["Rut"])
-                        refs["listado_empleados"] = df_empl_acum
+                # ── Normalizar si es formato Rex+ ──
+                if es_rexplus:
+                    df, df_empl = normalizar_rexplus(df)
+                    df_empl_acum = pd.concat([df_empl_acum, df_empl], ignore_index=True).drop_duplicates(subset=["Rut"])
+                    refs["listado_empleados"] = df_empl_acum
 
-                    # ── Validar estructura del CSV ──
-                    if df.empty:
-                        st.markdown(f'<div class="alert-error">❌ <b>{archivo.name}</b>: Archivo no tiene la estructura esperada, corrija antes de continuar.</div>', unsafe_allow_html=True)
-                        st.stop()
-                    if "Rut trabajador (1101)" not in df.columns:
-                        st.markdown(f'<div class="alert-error">❌ <b>{archivo.name}</b>: Archivo no tiene la estructura esperada, corrija antes de continuar.</div>', unsafe_allow_html=True)
-                        st.stop()
+                # ── Validar estructura del CSV ──
+                if df.empty:
+                    barra_val.empty()
+                    st.markdown(f'<div class="alert-error">❌ <b>{archivo.name}</b>: Archivo no tiene la estructura esperada, corrija antes de continuar.</div>', unsafe_allow_html=True)
+                    st.stop()
+                if "Rut trabajador (1101)" not in df.columns:
+                    barra_val.empty()
+                    st.markdown(f'<div class="alert-error">❌ <b>{archivo.name}</b>: Archivo no tiene la estructura esperada, corrija antes de continuar.</div>', unsafe_allow_html=True)
+                    st.stop()
 
-                    df = calcular_totales(df)
-                    errores = validar_cuadraturas(df, archivo.name)
-                    todos_errores.extend(errores)
+                df = calcular_totales(df)
+                errores = validar_cuadraturas(df, archivo.name)
+                todos_errores.extend(errores)
 
-                    # Obtener fecha de proceso
-                    if es_rexplus and "Fecha de proceso" in df.columns:
-                        df["_fecha_proceso"] = df["Fecha de proceso"].astype(str).str[:7].str.strip()
-                    else:
-                        fecha_proceso = extraer_fecha_proceso(archivo.name)
+                # Obtener fecha de proceso
+                if es_rexplus and "Fecha de proceso" in df.columns:
+                    df["_fecha_proceso"] = df["Fecha de proceso"].astype(str).str[:7].str.strip()
+                else:
+                    fecha_proceso = extraer_fecha_proceso(archivo.name)
 
-
-                    dfs.append(df)
+                dfs.append(df)
+            barra_val.progress(100, text="✅ Validaciones completadas")
 
             st.session_state["_validacion_ok"]  = True
             st.session_state["_todos_errores"]  = todos_errores
@@ -1183,6 +1191,19 @@ with nav_migracion:
                     Los registros de todos los archivos cuadran sin diferencias.
                 </div>""", unsafe_allow_html=True)
 
+                # ── Configuración de Fase ──
+                usa_fase = st.checkbox("¿El cliente usa Fase?", key="mig_usa_fase")
+                numero_fase = 0
+                if usa_fase:
+                    numero_fase = st.number_input(
+                        "Número de Fase",
+                        min_value=1,
+                        step=1,
+                        value=1,
+                        key="mig_numero_fase",
+                        help="Ingresa el número de fase (entero mayor a 0)."
+                    )
+
                 st.markdown("#### ¿Desea generar el archivo de salida?")
                 col_a, col_b, col_c, _ = st.columns([1, 1, 1, 4])
                 with col_a:
@@ -1203,15 +1224,24 @@ with nav_migracion:
                 if aceptar:
                     refs["listado_empleados"] = _refs_empl
                     refs["parametros"] = st.session_state.get("_refs_params", refs.get("parametros", pd.DataFrame()))
-                    with st.spinner("Generando archivo de salida..."):
-                        df_combined = pd.concat(_dfs, ignore_index=True)
-                        filas_salida = []
-                        for _, grupo in df_combined.groupby("_fecha_proceso"):
-                            fp = grupo["_fecha_proceso"].iloc[0]
-                            df_out = generar_filas_salida(grupo, fp, refs)
-                            filas_salida.append(df_out)
-                        df_final = pd.concat(filas_salida, ignore_index=True) if filas_salida else pd.DataFrame()
-                        excel_bytes = generar_excel(df_final)
+                    barra_gen = st.progress(0, text="Generando registros de salida...")
+                    df_combined = pd.concat(_dfs, ignore_index=True)
+                    grupos = list(df_combined.groupby("_fecha_proceso"))
+                    filas_salida = []
+                    for gi, (_, grupo) in enumerate(grupos):
+                        barra_gen.progress(int((gi / max(len(grupos), 1)) * 80) + 10, text=f"Procesando período {grupo['_fecha_proceso'].iloc[0]}...")
+                        fp = grupo["_fecha_proceso"].iloc[0]
+                        df_out = generar_filas_salida(grupo, fp, refs)
+                        filas_salida.append(df_out)
+                    df_final = pd.concat(filas_salida, ignore_index=True) if filas_salida else pd.DataFrame()
+                    # ── Aplicar o eliminar columna Fase ──
+                    if usa_fase and numero_fase >= 1:
+                        df_final["Fase"] = int(numero_fase)
+                    else:
+                        df_final = df_final.drop(columns=["Fase"], errors="ignore")
+                    barra_gen.progress(95, text="Generando Excel...")
+                    excel_bytes = generar_excel(df_final)
+                    barra_gen.progress(100, text="✅ Archivo generado")
                     st.session_state["_validacion_ok"] = False
                     st.markdown('<div class="alert-success">✅ Archivo generado exitosamente.</div>', unsafe_allow_html=True)
                     st.download_button(
