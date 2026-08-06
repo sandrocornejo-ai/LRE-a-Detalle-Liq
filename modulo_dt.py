@@ -233,6 +233,58 @@ CONCEPTOS_AFECTO_AFP = {"mutual", "sis", "trabajoPesaEmpl", "trabajoPesa", "afp"
 CONCEPTOS_AFECTO_CES = {"cesAporteCi", "cesAporteSol", "cesEmpleado"}
 CONCEPTOS_ID_AFP     = {"sis", "afp", "trabajoPesaEmpl", "trabajoPesa", "cesEmpleado", "cesAporteSol", "cesAporteCi"}
 
+# Conceptos que NO deben tener código LRE asignado en equiv_conceptos
+CONCEPTOS_SIN_LRE_DT = {
+    "cajaComp", "reliquidaCcaf", "aporteAFPemp", "reliquidaAporteAFP",
+    "aporteFAPPCEV", "reliquidaAporteCEV", "aporteFAPPBAC", "reliquidaAporteBAC",
+    "aportesegurocovid",
+}
+
+def verificar_conceptos_prohibidos_dt(equiv_df):
+    """
+    Revisa si alguno de los conceptos que NO deben tener código LRE
+    aparece en equiv_conceptos con un cod_lre asignado.
+    Retorna lista de dicts {Concepto, Código LRE asignado}.
+    """
+    if equiv_df is None or equiv_df.empty:
+        return []
+    if "concepto_detalle" not in equiv_df.columns or "cod_lre" not in equiv_df.columns:
+        return []
+    hallazgos = []
+    for _, row in equiv_df.iterrows():
+        concepto = str(row["concepto_detalle"]).strip()
+        cod_lre  = str(row["cod_lre"]).strip()
+        if concepto in CONCEPTOS_SIN_LRE_DT and cod_lre and cod_lre.lower() != "nan":
+            hallazgos.append({"Concepto": concepto, "Código LRE asignado": cod_lre})
+    return hallazgos
+
+def mostrar_alerta_conceptos_prohibidos_dt(hallazgos):
+    """Muestra en pantalla la advertencia cuando hay conceptos con código LRE no permitido."""
+    if not hallazgos:
+        return
+    filas_html = "".join(
+        f"<tr>"
+        f"<td style='padding:4px 14px;font-weight:600;color:#744210'>{h['Concepto']}</td>"
+        f"<td style='padding:4px 14px;color:#744210'>{h['Código LRE asignado']}</td>"
+        f"</tr>"
+        for h in hallazgos
+    )
+    st.markdown(f"""
+    <div class="alert-warning">
+        ⚠️ <b>¡Atención! {len(hallazgos)} concepto(s) tienen un código LRE asignado pero NO deberían tenerlo.</b><br>
+        Por favor elimina esa relación en el archivo <b>equiv_conceptos.xlsx</b> antes de continuar:
+        <table style='margin-top:10px;border-collapse:collapse;width:auto'>
+            <thead>
+                <tr>
+                    <th style='padding:4px 14px;text-align:left;border-bottom:2px solid #d69e2e;color:#744210'>Concepto</th>
+                    <th style='padding:4px 14px;text-align:left;border-bottom:2px solid #d69e2e;color:#744210'>Código LRE asignado</th>
+                </tr>
+            </thead>
+            <tbody>{filas_html}</tbody>
+        </table>
+    </div>
+    """, unsafe_allow_html=True)
+
 
 # ─────────────────────────────────────────────
 # LECTURA DEL CSV DT (encabezado variable)
@@ -1195,6 +1247,35 @@ def render_modulo_dt(refs_compartidas):
         else:
             st.markdown('<div class="alert-warning">⚠️ Requerido para ejecutar el proceso.</div>', unsafe_allow_html=True)
 
+    # ── Carga opcional de equivalencia de conceptos ──
+    st.markdown('<hr class="rex-divider">', unsafe_allow_html=True)
+    cargar_equiv_dt = st.checkbox(
+        "¿Deseas cargar los conceptos de la base desde un archivo?",
+        key="dt_chk_equiv_conceptos",
+        value=False,
+        help="Activa esta opción para subir manualmente el archivo equiv_conceptos.xlsx."
+    )
+    archivo_equiv_dt = None
+    if cargar_equiv_dt:
+        col_eq_dt, _ = st.columns([1, 1])
+        with col_eq_dt:
+            archivo_equiv_dt = st.file_uploader(
+                "Sube el archivo equiv_conceptos.xlsx",
+                type=["xlsx"],
+                key="dt_up_equiv_conceptos",
+                help="Archivo con la equivalencia de conceptos LRE → concepto Rex+."
+            )
+        if archivo_equiv_dt:
+            st.markdown(
+                f'<div class="alert-success">✅ Conceptos cargados: <b>{archivo_equiv_dt.name}</b></div>',
+                unsafe_allow_html=True
+            )
+        else:
+            st.markdown(
+                '<div class="alert-warning">⚠️ Sube el archivo <b>equiv_conceptos.xlsx</b> para usar una equivalencia personalizada.</div>',
+                unsafe_allow_html=True
+            )
+
     if not archivo_dt or not archivo_empleados or not archivo_empresas or not archivo_params_dt:
         return
 
@@ -1318,6 +1399,14 @@ def render_modulo_dt(refs_compartidas):
             refs_dt = dict(refs_compartidas)
             refs_dt["listado_empresas"] = df_empresas_periodo
             refs_dt["parametros"] = df_params_periodo
+            if cargar_equiv_dt and archivo_equiv_dt:
+                archivo_equiv_dt.seek(0)
+                refs_dt["equiv_conceptos"] = pd.read_excel(archivo_equiv_dt)
+
+            # Verificar conceptos que no deben tener código LRE
+            mostrar_alerta_conceptos_prohibidos_dt(
+                verificar_conceptos_prohibidos_dt(refs_dt.get("equiv_conceptos", pd.DataFrame()))
+            )
 
             barra.progress(70, text="Validando cuadraturas...")
             # Ejecutar validaciones de cuadratura
