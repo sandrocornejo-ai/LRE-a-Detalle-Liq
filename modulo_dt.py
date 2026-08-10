@@ -230,8 +230,8 @@ def safe_sum_by_codes(df, codigos):
     return df[cols].apply(pd.to_numeric, errors="coerce").fillna(0).sum(axis=1)
 
 CONCEPTOS_AFECTO_AFP = {"mutual", "sis", "trabajoPesaEmpl", "trabajoPesa", "afp", "isapre"}
-CONCEPTOS_AFECTO_CES = {"cesAporteCi", "cesAporteSol", "cesEmpleado"}
-CONCEPTOS_ID_AFP     = {"sis", "afp", "trabajoPesaEmpl", "trabajoPesa", "cesEmpleado", "cesAporteSol", "cesAporteCi"}
+CONCEPTOS_AFECTO_CES = {"cesAporteSol", "cesEmpleado"}
+CONCEPTOS_ID_AFP     = {"sis", "afp", "trabajoPesaEmpl", "trabajoPesa", "cesEmpleado", "cesAporteSol"}
 
 # Conceptos que NO deben tener código LRE asignado en equiv_conceptos
 CONCEPTOS_SIN_LRE_DT = {
@@ -820,6 +820,9 @@ def generar_filas_dt(df, fecha_proceso, refs, df_empleados, df_empresas_externo=
             id_concepto = equiv_map.get(col_csv, "")
             if not id_concepto:
                 continue
+            # Alias: normalizar cesAporteCi → cesAporteSol
+            if id_concepto == "cesAporteCi":
+                id_concepto = "cesAporteSol"
             if id_concepto == "isapre":
                 monto = monto_isapre
             else:
