@@ -697,7 +697,7 @@ def generar_filas_dt(df, fecha_proceso, refs, df_empleados, df_empresas_externo=
     # Conceptos que se incluyen cuando el trabajador tiene licencia mes completo (dias_trab = 0)
     CONCEPTOS_LICENCIA_COMPLETA = {
         "sueldoBase", "gratificacion", "afp", "isapre", "cesEmpleado",
-        "impuesto", "totalesEmpl", "mutual", "sis", "cesAporteCi"
+        "impuesto", "totalesEmpl", "mutual", "sis", "cesAporteSol"
     }
 
     # Días reales del mes (calculado una sola vez)
