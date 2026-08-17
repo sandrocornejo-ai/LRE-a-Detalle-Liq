@@ -1021,7 +1021,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ── NAVEGACIÓN PRINCIPAL ──
-nav_migracion, nav_dt = st.tabs(["📂 Migración desde archivo base LRE de Rex", "🏛️ Migración archivo descargado desde DT"])
+nav_dt, nav_migracion = st.tabs(["🏛️ Migración archivo descargado desde DT", "📂 Migración desde archivo base LRE de Rex"])
 
 # Cargar referencias compartidas (disponibles para todos los tabs)
 refs, errores_refs = cargar_referencias()
