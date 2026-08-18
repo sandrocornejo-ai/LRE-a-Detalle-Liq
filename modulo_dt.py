@@ -230,8 +230,8 @@ def safe_sum_by_codes(df, codigos):
     return df[cols].apply(pd.to_numeric, errors="coerce").fillna(0).sum(axis=1)
 
 CONCEPTOS_AFECTO_AFP = {"mutual", "sis", "trabajoPesaEmpl", "trabajoPesa", "afp", "isapre"}
-CONCEPTOS_AFECTO_CES = {"cesAporteSol", "cesEmpleado"}
-CONCEPTOS_ID_AFP     = {"sis", "afp", "trabajoPesaEmpl", "trabajoPesa", "cesEmpleado", "cesAporteSol"}
+CONCEPTOS_AFECTO_CES = {"cesAporteCi", "cesAporteSol", "cesEmpleado"}
+CONCEPTOS_ID_AFP     = {"sis", "afp", "trabajoPesaEmpl", "trabajoPesa", "cesEmpleado", "cesAporteSol", "cesAporteCi"}
 
 # Conceptos que NO deben tener código LRE asignado en equiv_conceptos
 CONCEPTOS_SIN_LRE_DT = {
@@ -355,7 +355,7 @@ def validar_columnas_lre(df):
 
 
 def mostrar_aviso_columnas(diferencias, desconocidas):
-    """Muestra avisos de diferencias y columnas desconocidas. 
+    """Muestra avisos de diferencias y columnas desconocidas.
     Permite agregar columnas nuevas al diccionario en sesión."""
 
     # ── Aviso 1: nombres distintos (amarillo) ──
@@ -618,12 +618,93 @@ def safe_num(val, default=0):
 
 
 # ─────────────────────────────────────────────
+# HELPERS PARA PARCIAL 7 (HISTÓRICO)
+# ─────────────────────────────────────────────
+def calcular_imponibles_historico(historico_dfs, equiv_map_by_code, tipo_map):
+    """
+    Pre-calcula para cada mes histórico:
+        {fecha: {rut: {"suma_haber_afecto": float, "dias_lic": float}}}
+    Se usa para buscar el imponible del mes anterior sin licencia (Parcial 7).
+    historico_dfs: dict {fecha_str: df_historico}
+    """
+    result = {}
+    for fecha, df_hist in historico_dfs.items():
+        col_rut_h      = find_col(df_hist, COD_RUT)
+        col_dias_lic_h = find_col(df_hist, COD_DIAS_LIC)
+        col_salud_vol_h = find_col(df_hist, COD_SALUD_VOL)
+
+        # Construir equiv_map para este df histórico (tolerante a nombres distintos)
+        equiv_map_hist = {}
+        for col in df_hist.columns:
+            codigo_col = extraer_codigo(col)
+            if codigo_col is not None and codigo_col in equiv_map_by_code:
+                equiv_map_hist[col] = equiv_map_by_code[codigo_col]
+
+        cols_c_hist = [c for c in df_hist.columns if c in equiv_map_hist and c != col_salud_vol_h]
+        cols_afecto_hist = [
+            c for c in cols_c_hist
+            if tipo_map.get(equiv_map_hist.get(c, ""), "") == "Haber afecto"
+        ]
+
+        rut_data = {}
+        for _, row_h in df_hist.iterrows():
+            rut_h = str(row_h.get(col_rut_h, "")).strip() if col_rut_h else ""
+            if not rut_h:
+                continue
+            dias_lic_h = safe_num(row_h.get(col_dias_lic_h, 0) if col_dias_lic_h else 0)
+            suma_h = sum(safe_num(row_h.get(c, 0)) for c in cols_afecto_hist)
+            rut_data[rut_h] = {"suma_haber_afecto": suma_h, "dias_lic": dias_lic_h}
+
+        result[fecha] = rut_data
+    return result
+
+
+def buscar_parcial7(rut, fecha_proceso, historico_imponibles, params_df):
+    """
+    Busca el monto imponible con tope del mes anterior más reciente donde dias_lic == 0.
+    Retrocede mes a mes hasta encontrarlo.
+
+    Retorna (valor, encontrado, mes_encontrado):
+      - valor        : float si encontrado, "" si no
+      - encontrado   : bool
+      - mes_encontrado: str ("yyyy-mm") o None
+    """
+    meses_anteriores = sorted(
+        [f for f in historico_imponibles.keys() if f < fecha_proceso],
+        reverse=True   # más reciente primero
+    )
+    for mes in meses_anteriores:
+        datos_mes = historico_imponibles.get(mes, {})
+        if rut not in datos_mes:
+            continue
+        worker_data = datos_mes[rut]
+        if worker_data["dias_lic"] != 0:
+            # Tuvo licencia ese mes → seguir buscando hacia atrás
+            continue
+        suma_haber_afecto_hist = worker_data["suma_haber_afecto"]
+        # Obtener tope_afp del mes histórico desde parametrosMesuales
+        tope_afp_hist = 0
+        if not params_df.empty and "mes_Proc" in params_df.columns:
+            row_p = params_df[params_df["mes_Proc"].astype(str).str.strip() == mes]
+            if not row_p.empty:
+                tope_afp_hist = safe_num(row_p.iloc[0].get("topeImp_pesos_afp", 0))
+        valor = (
+            min(suma_haber_afecto_hist, tope_afp_hist)
+            if tope_afp_hist > 0
+            else suma_haber_afecto_hist
+        )
+        return valor, True, mes
+    return "", False, None
+
+
+# ─────────────────────────────────────────────
 # GENERACIÓN DE FILAS DE SALIDA
 # ─────────────────────────────────────────────
-def generar_filas_dt(df, fecha_proceso, refs, df_empleados, df_empresas_externo=None):
+def generar_filas_dt(df, fecha_proceso, refs, df_empleados, df_empresas_externo=None, historico_dfs=None):
     """
     Genera las filas del archivo de salida desde el CSV de la DT.
     df_empresas_externo: DataFrame de empresas ya cargado correctamente (prioritario).
+    historico_dfs: dict {fecha_str: df} con los CSVs de meses anteriores para Parcial 7.
     """
     filas = []
 
@@ -664,12 +745,6 @@ def generar_filas_dt(df, fecha_proceso, refs, df_empleados, df_empresas_externo=
             tope_ces   = safe_num(row_params.iloc[0].get("topeCes_pesos", 0))
 
     # ── Mapa de equivalencias: código numérico → concepto_detalle + Tipo ──
-    # NOTA: se resuelve por código (código) en vez de nombre exacto de columna,
-    # ya que el archivo DT puede traer nombres de columna con variaciones
-    # respecto al nombre oficial LRE (espacios, mayúsculas, etc.), igual que
-    # find_col(). Comparar por string exacto dejaba cols_conceptos vacío
-    # cuando había diferencias de nombre, y por lo tanto no se generaba
-    # ninguna fila de salida aunque las validaciones cuadraran.
     equiv_map_by_code = {}  # código (int) → concepto_detalle
     tipo_map = {}           # concepto_detalle → Tipo
     if not equiv.empty and "cod_lre" in equiv.columns and "concepto_detalle" in equiv.columns:
@@ -677,13 +752,16 @@ def generar_filas_dt(df, fecha_proceso, refs, df_empleados, df_empresas_externo=
             codigo_equiv = extraer_codigo(er["cod_lre"])
             concepto     = str(er["concepto_detalle"]).strip()
             tipo         = str(er.get("Tipo", "")).strip()
-            # Solo mapear la primera aparición para evitar duplicados de isapre
             if codigo_equiv is not None and codigo_equiv not in equiv_map_by_code:
                 equiv_map_by_code[codigo_equiv] = concepto
             tipo_map[concepto] = tipo
 
+    # ── Pre-computar imponibles históricos para Parcial 7 ──
+    if historico_dfs is None:
+        historico_dfs = {}
+    historico_imponibles = calcular_imponibles_historico(historico_dfs, equiv_map_by_code, tipo_map)
+
     # Resolver cada columna real del df a su concepto, por código numérico
-    # (tolerante a diferencias de nombre respecto al oficial LRE)
     equiv_map = {}  # nombre real de columna en df → concepto_detalle
     for col in df.columns:
         codigo_col = extraer_codigo(col)
@@ -697,7 +775,7 @@ def generar_filas_dt(df, fecha_proceso, refs, df_empleados, df_empresas_externo=
     # Conceptos que se incluyen cuando el trabajador tiene licencia mes completo (dias_trab = 0)
     CONCEPTOS_LICENCIA_COMPLETA = {
         "sueldoBase", "gratificacion", "afp", "isapre", "cesEmpleado",
-        "impuesto", "totalesEmpl", "mutual", "sis", "cesAporteSol"
+        "impuesto", "totalesEmpl", "mutual", "sis", "cesAporteCi"
     }
 
     # Días reales del mes (calculado una sola vez)
@@ -728,6 +806,7 @@ def generar_filas_dt(df, fecha_proceso, refs, df_empleados, df_empresas_externo=
     ruts_problema = {}   # rut → motivo
     filas = []
     filas_sin_contrato = []
+    log_parcial7_rows = []   # filas originales del CSV para workers sin imponible histórico
 
     for _, row in df.iterrows():
         rut = str(row.get(col_rut, "")).strip() if col_rut else ""
@@ -814,38 +893,39 @@ def generar_filas_dt(df, fecha_proceso, refs, df_empleados, df_empresas_externo=
 
         licencia_mes_completo = dias_trab == 0
 
-        # ── Agrupar montos por concepto (suma columnas que mapean al mismo concepto) ──
+        # ── Agrupar montos por concepto ──
         montos_por_concepto = {}
         for col_csv in cols_conceptos:
             id_concepto = equiv_map.get(col_csv, "")
             if not id_concepto:
                 continue
-            # Alias: normalizar cesAporteCi → cesAporteSol
-            if id_concepto == "cesAporteCi":
-                id_concepto = "cesAporteSol"
             if id_concepto == "isapre":
                 monto = monto_isapre
             else:
                 monto = safe_num(row.get(col_csv, 0))
             montos_por_concepto[id_concepto] = montos_por_concepto.get(id_concepto, 0) + monto
 
-        # ── Generar fila por cada concepto ──
         conceptos_siempre = {"impuesto", "cesEmpleado"}
         if licencia_mes_completo:
             conceptos_siempre = conceptos_siempre | CONCEPTOS_LICENCIA_COMPLETA
-            # Asegurar que todos los conceptos de licencia completa estén presentes
-            # aunque su columna no exista en el CSV o su monto sea 0
             for c in CONCEPTOS_LICENCIA_COMPLETA:
                 if c not in montos_por_concepto:
                     montos_por_concepto[c] = 0
 
+        # ── Parcial 8: afecto de cesEmpleado (se reutiliza para cesAporteSol) ──
+        afecto_ces_empleado = min(suma_haber_afecto, tope_ces) if tope_ces > 0 else suma_haber_afecto
+
+        # ── Parcial 7: imponible con tope del mes anterior sin licencia ──
+        parcial7_valor, parcial7_encontrado, _ = buscar_parcial7(
+            rut, fecha_proceso, historico_imponibles, params_df
+        )
+
+        # ── Generar fila por cada concepto ──
         for id_concepto, monto in montos_por_concepto.items():
 
-            # Si licencia mes completo, solo incluir conceptos permitidos
             if licencia_mes_completo and id_concepto not in CONCEPTOS_LICENCIA_COMPLETA:
                 continue
 
-            # Saltar si monto es 0, excepto conceptos que siempre se incluyen
             if monto == 0 and id_concepto not in conceptos_siempre:
                 continue
 
@@ -889,33 +969,50 @@ def generar_filas_dt(df, fecha_proceso, refs, df_empleados, df_empresas_externo=
             elif id_concepto == "totalesEmpl":
                 cot_jubilacion = min(suma_haber_afecto, tope_afp) if tope_afp > 0 else suma_haber_afecto
 
-            # ── Rentas no gravadas (solo si concepto = impuesto) ──
+            # ── Rentas no gravadas y rebajas LLSS (solo concepto impuesto) ──
             rentas_no_grav = suma_haber_exento if id_concepto == "impuesto" else 0
+            rebajas_llss   = total_rebajas_llss if id_concepto == "impuesto" else 0
 
-            # ── Total rebajas LLSS (solo si concepto = impuesto) ──
-            rebajas_llss = total_rebajas_llss if id_concepto == "impuesto" else 0
+            # ── Parcial 7: solo para mutual y sis ──
+            if id_concepto in {"mutual", "sis"}:
+                p7 = parcial7_valor   # float o "" si no encontrado
+            else:
+                p7 = 0
+
+            # ── Parcial 8: solo para cesAporteSol ──
+            p8 = afecto_ces_empleado if id_concepto == "cesAporteSol" else 0
 
             target.append({
-                "Fecha de proceso":        fecha_proceso,
-                "Id empleado":             rut,
-                "Número de contrato":      numero_contrato,
-                "Id del concepto":         id_concepto,
-                "Monto del concepto":      monto,
-                "Afecto":                  afecto,
-                "Id de institución":       id_institucion,
-                "Cotización de jubilación": cot_jubilacion,
-                "Días de licencias":       dias_lic,
-                "Días trabajados":         dias_trab,
-                "Fecha de aplicación":     fecha_proceso,
-                "Empresa":                 empresa_salida,
+                "Fecha de proceso":          fecha_proceso,
+                "Id empleado":               rut,
+                "Número de contrato":        numero_contrato,
+                "Id del concepto":           id_concepto,
+                "Monto del concepto":        monto,
+                "Afecto":                    afecto,
+                "Id de institución":         id_institucion,
+                "Cotización de jubilación":  cot_jubilacion,
+                "Días de licencias":         dias_lic,
+                "Días trabajados":           dias_trab,
+                "Fecha de aplicación":       fecha_proceso,
+                "Empresa":                   empresa_salida,
                 "Total de rebajas por LLSS": rebajas_llss,
-                "Rentas no gravadas":      rentas_no_grav,
-                "Rebaja por zona extrema": rebaja_zona if id_concepto == "impuesto" else 0,
-                "Jornada":                 "C",
-                "Días de vacaciones":      dias_vac,
-                "Monto Init":              monto_init if id_concepto == "sueldoBase" else 0,
-                "Fase":                    1,
+                "Rentas no gravadas":        rentas_no_grav,
+                "Rebaja por zona extrema":   rebaja_zona if id_concepto == "impuesto" else 0,
+                "Jornada":                   "C",
+                "Días de vacaciones":        dias_vac,
+                "Monto Init":                monto_init if id_concepto == "sueldoBase" else 0,
+                "Fase":                      1,
+                "Parcial 7":                 p7,
+                "Parcial 8":                 p8,
             })
+
+        # ── Log Parcial 7: si worker tiene mutual/sis y no se encontró imponible histórico ──
+        tiene_mutual_sis = any(
+            id_c in {"mutual", "sis"} and (montos_por_concepto.get(id_c, 0) != 0 or id_c in conceptos_siempre)
+            for id_c in montos_por_concepto
+        )
+        if tiene_mutual_sis and not parcial7_encontrado:
+            log_parcial7_rows.append(row.to_dict())
 
         # ── Fila adicional: licenciaDias (si días de licencia > 0) ──
         if dias_lic > 0:
@@ -939,14 +1036,17 @@ def generar_filas_dt(df, fecha_proceso, refs, df_empleados, df_empresas_externo=
                 "Días de vacaciones":        dias_vac,
                 "Monto Init":                0,
                 "Fase":                      1,
+                "Parcial 7":                 0,
+                "Parcial 8":                 0,
             })
+
     df_log_contratos = pd.DataFrame()
     if ruts_problema:
         df_log_contratos = construir_log_contratos(
             df_empleados, list(ruts_problema.keys()), fecha_proceso, ruts_problema
         )
 
-    return pd.DataFrame(filas), pd.DataFrame(filas_sin_contrato), df_log_contratos
+    return pd.DataFrame(filas), pd.DataFrame(filas_sin_contrato), df_log_contratos, log_parcial7_rows
 
 
 # ─────────────────────────────────────────────
@@ -1020,6 +1120,58 @@ def generar_excel_log(df_log):
     return output.getvalue()
 
 
+# ─────────────────────────────────────────────
+# GENERACIÓN EXCEL LOG PARCIAL 7
+# ─────────────────────────────────────────────
+def generar_excel_log_parcial7(log_rows):
+    """
+    Genera Excel de log para trabajadores donde no se encontró imponible
+    histórico sin licencia (Parcial 7).
+    Mismo formato que el archivo de entrada: todas las columnas del CSV,
+    filas en verde claro, columna extra 'Imponible no encontrado' al final.
+    """
+    if not log_rows:
+        return None
+
+    output = io.BytesIO()
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Log Parcial 7"
+
+    df_log = pd.DataFrame(log_rows)
+    # Columna de aviso al final
+    df_log["Imponible no encontrado"] = "⚠️ No se encontró imponible histórico sin licencia — completar manualmente"
+
+    # Mostrar _fila_original como referencia al inicio si existe
+    todas_cols = list(df_log.columns)
+    if "_fila_original" in todas_cols:
+        todas_cols = ["_fila_original"] + [c for c in todas_cols if c != "_fila_original"]
+
+    header_fill = PatternFill("solid", fgColor="1A2744")
+    header_font = Font(bold=True, color="FFFFFF", size=10)
+    green_fill  = PatternFill("solid", fgColor="C6EFCE")   # verde claro estándar Excel
+    border      = Border(
+        bottom=Side(style="thin", color="92D050"),
+        right=Side(style="thin",  color="92D050"),
+    )
+
+    for ci, col in enumerate(todas_cols, 1):
+        cell = ws.cell(row=1, column=ci, value=col)
+        cell.fill      = header_fill
+        cell.font      = header_font
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+        ws.column_dimensions[cell.column_letter].width = max(len(str(col)) + 4, 14)
+
+    for ri, (_, data_row) in enumerate(df_log[todas_cols].iterrows(), 2):
+        for ci, col in enumerate(todas_cols, 1):
+            cell = ws.cell(row=ri, column=ci, value=data_row.get(col, ""))
+            cell.fill      = green_fill
+            cell.border    = border
+            cell.alignment = Alignment(vertical="center")
+
+    ws.freeze_panes = "A2"
+    wb.save(output)
+    return output.getvalue()
 
 
 def validar_cuadraturas_dt(df, nombre_archivo):
@@ -1054,30 +1206,7 @@ def validar_cuadraturas_dt(df, nombre_archivo):
                     partes.append(f"{c}: {round(v, 2)}")
         return " | ".join(partes) if partes else "(sin valores)"
 
-    def registrar(df, mask, calc, cod_ctrl, codigo_val, descripcion, codes_detalle, col_rut):
-        """Registra errores para las filas que no cumplen la validación."""
-        col_ctrl = find_col(df, cod_ctrl)
-        if not col_ctrl or col_ctrl not in df.columns:
-            return []
-        ctrl = pd.to_numeric(df[col_ctrl], errors="coerce").fillna(0)
-        filas = []
-        for _, row in df[mask].iterrows():
-            filas.append({
-                "Archivo":          nombre_archivo,
-                "RUT":              row.get(col_rut, "N/D"),
-                "Fila en archivo":  int(row.get("_fila_original", row.name + 2)),
-                "Validación":       codigo_val,
-                "Descripción":      descripcion,
-                "Columnas sumadas": detalle_cols_dt(row, codes_detalle),
-                "Valor calculado":  round(calc[row.name], 2),
-                "Columna control":  col_ctrl,
-                "Valor control":    round(ctrl[row.name], 2),
-                "Diferencia":       round(calc[row.name] - ctrl[row.name], 2),
-            })
-        return filas
-
     # ── Cálculos intermedios ──
-    # Totales de secciones
     calc_5220 = safe_sum_by_codes(df, [2201, 2202, 2203, 2204])
     calc_5230 = safe_sum_by_codes(df, [2301, 2302, 2303, 2304, 2305, 2311, 2306,
                                         2307, 2308, 2309, 2347, 2310, 2312, 2313,
@@ -1100,7 +1229,6 @@ def validar_cuadraturas_dt(df, nombre_archivo):
 
     # ── Validaciones ──
     validaciones = [
-        # (codigo_val, calc, cod_ctrl, descripcion, codes_detalle)
         ("V1",  calc_5201, 5201, "5210+5220+5230+5240 ≠ Total haberes (5201)",
          [5210, 5220, 5230, 5240]),
         ("V2",  calc_5220, 5220, "2201+2202+2203+2204 ≠ Total haberes imponibles no tributables (5220)",
@@ -1171,8 +1299,8 @@ def render_modulo_dt(refs_compartidas):
         st.markdown("""
         <div class="step-card">
             <div class="step-label">PASO 1</div>
-            <div class="step-title">Subir archivo DT</div>
-            <div class="step-desc">Archivo CSV descargado desde el portal de la Dirección del Trabajo.</div>
+            <div class="step-title">Subir archivos DT</div>
+            <div class="step-desc">Uno o más archivos CSV de la DT. El nombre de cada archivo debe incluir el mes y año.</div>
         </div>""", unsafe_allow_html=True)
     with col2:
         st.markdown("""
@@ -1195,16 +1323,16 @@ def render_modulo_dt(refs_compartidas):
     col_up1, col_up2 = st.columns(2)
 
     with col_up1:
-        st.markdown("#### 📤 Archivo CSV de la Dirección del Trabajo")
-        archivo_dt = st.file_uploader(
-            "Selecciona el archivo CSV de la DT",
+        st.markdown("#### 📤 Archivos CSV de la Dirección del Trabajo")
+        archivos_dt = st.file_uploader(
+            "Selecciona uno o más archivos CSV de la DT (un archivo por mes)",
             type=["csv"],
-            accept_multiple_files=False,
+            accept_multiple_files=True,
             key="dt_csv_upload",
-            help="Archivo descargado desde el portal de la Dirección del Trabajo."
+            help="El nombre de cada archivo debe incluir el mes y año (ej: enero_2025.csv, 202501.csv). Sube varios meses para habilitar el histórico de Parcial 7."
         )
-        if archivo_dt:
-            st.markdown(f'<div class="alert-success">✅ <b>{archivo_dt.name}</b></div>', unsafe_allow_html=True)
+        if archivos_dt:
+            st.markdown(f'<div class="alert-success">✅ <b>{len(archivos_dt)} archivo(s) cargado(s)</b></div>', unsafe_allow_html=True)
 
     with col_up2:
         st.markdown("#### 👥 Listado de empleados del período")
@@ -1279,35 +1407,71 @@ def render_modulo_dt(refs_compartidas):
                 unsafe_allow_html=True
             )
 
-    if not archivo_dt or not archivo_empleados or not archivo_empresas or not archivo_params_dt:
+    if not archivos_dt or not archivo_empleados or not archivo_empresas or not archivo_params_dt:
         return
 
-    st.markdown(f'<div class="alert-success">✅ Archivo DT cargado: <b>{archivo_dt.name}</b></div>', unsafe_allow_html=True)
+    # ── Parsear fechas de todos los archivos subidos ──
+    archivos_por_mes = {}
+    archivos_sin_fecha = []
+    for f in archivos_dt:
+        fecha_f, ok_f = extraer_fecha_dt(f.name)
+        if ok_f:
+            if fecha_f in archivos_por_mes:
+                st.markdown(
+                    f'<div class="alert-warning">⚠️ Hay más de un archivo con el período <b>{fecha_f}</b>. Se usará el último: <b>{f.name}</b>.</div>',
+                    unsafe_allow_html=True
+                )
+            archivos_por_mes[fecha_f] = f
+        else:
+            archivos_sin_fecha.append(f.name)
 
-    # ── Determinar fecha de proceso ──
-    fecha_proceso, fecha_ok = extraer_fecha_dt(archivo_dt.name)
+    if archivos_sin_fecha:
+        st.markdown(
+            f'<div class="alert-warning">⚠️ No se pudo determinar el período de {len(archivos_sin_fecha)} archivo(s): '
+            f'<b>{", ".join(archivos_sin_fecha)}</b>. Estos no se usarán como histórico.<br>'
+            f'Renombra los archivos incluyendo el mes y año (ej: <code>enero_2025.csv</code>).</div>',
+            unsafe_allow_html=True
+        )
 
-    if not fecha_ok:
-        st.markdown("""
-        <div class="alert-warning">
-            ⚠️ <b>No se pudo determinar la fecha de proceso</b> desde el nombre del archivo.<br>
-            Por favor selecciona el mes y año correspondiente.
-        </div>""", unsafe_allow_html=True)
+    if not archivos_por_mes:
+        st.markdown(
+            '<div class="alert-error">❌ No se pudo determinar el período de ningún archivo. '
+            'Renombra los archivos incluyendo el mes y año (ej: enero_2025.csv).</div>',
+            unsafe_allow_html=True
+        )
+        return
 
-        col_m, col_a, _ = st.columns([1, 1, 3])
-        with col_m:
-            mes_sel = st.selectbox("Mes", options=list(range(1, 13)),
-                                   format_func=lambda x: f"{x:02d} - {['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][x-1]}",
-                                   key="dt_mes_sel")
-        with col_a:
-            anio_actual = datetime.now().year
-            anio_sel = st.selectbox("Año", options=list(range(anio_actual - 5, anio_actual + 2)),
-                                    index=5, key="dt_anio_sel")
-        fecha_proceso = f"{anio_sel}-{mes_sel:02d}"
+    # ── Selector de mes a procesar ──
+    st.markdown('<hr class="rex-divider">', unsafe_allow_html=True)
+    meses_ordenados = sorted(archivos_por_mes.keys())
+    mes_seleccionado = st.selectbox(
+        "📅 Selecciona el mes a procesar:",
+        options=meses_ordenados,
+        index=len(meses_ordenados) - 1,   # default: el más reciente
+        key="dt_mes_procesar",
+        help="Los demás meses cargados se usarán automáticamente como histórico para calcular Parcial 7."
+    )
 
-    st.markdown(f'<div class="alert-success">📅 Fecha de proceso: <b>{fecha_proceso}</b></div>', unsafe_allow_html=True)
+    archivo_dt_principal = archivos_por_mes[mes_seleccionado]
+    fecha_proceso = mes_seleccionado
+    historico_archivos = {f: archivos_por_mes[f] for f in archivos_por_mes if f != mes_seleccionado}
 
-    # ── Configuración de Fase (destacada visualmente) ──
+    meses_hist = sorted(historico_archivos.keys())
+    if meses_hist:
+        st.markdown(
+            f'<div class="alert-success">✅ Mes a procesar: <b>{fecha_proceso}</b> &nbsp;|&nbsp; '
+            f'Histórico disponible: <b>{", ".join(meses_hist)}</b></div>',
+            unsafe_allow_html=True
+        )
+    else:
+        st.markdown(
+            f'<div class="alert-warning">⚠️ Mes a procesar: <b>{fecha_proceso}</b>. '
+            f'No hay meses históricos cargados — Parcial 7 quedará en blanco para los conceptos mutual/sis '
+            f'y se generará un log para completarlo manualmente.</div>',
+            unsafe_allow_html=True
+        )
+
+    # ── Configuración de Fase ──
     st.markdown('<hr class="rex-divider">', unsafe_allow_html=True)
     st.markdown('''<div style="background:#EFF6FF; border:2px solid #3B82F6; border-radius:8px; padding:14px 20px; margin-bottom:12px;">
 <b style="font-size:1rem; color:#1D4ED8;">⚙️ Configuración de Fase</b><br>
@@ -1334,37 +1498,46 @@ def render_modulo_dt(refs_compartidas):
         barra = st.progress(0, text="Iniciando proceso...")
         try:
             barra.progress(10, text="Leyendo archivo DT...")
-            # Leer CSV DT
-            df_dt = leer_csv_dt(archivo_dt)
+            archivo_dt_principal.seek(0)
+            df_dt = leer_csv_dt(archivo_dt_principal)
 
-            # ── Validar estructura del CSV DT (independiente del nombre del archivo) ──
             if df_dt.empty:
                 barra.empty()
-                st.markdown(f'<div class="alert-error">❌ <b>{archivo_dt.name}</b>: Archivo no tiene la estructura esperada, corrija antes de continuar.</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="alert-error">❌ <b>{archivo_dt_principal.name}</b>: Archivo no tiene la estructura esperada, corrija antes de continuar.</div>', unsafe_allow_html=True)
                 st.stop()
             if find_col(df_dt, COD_RUT) is None:
                 barra.empty()
-                st.markdown(f'<div class="alert-error">❌ <b>{archivo_dt.name}</b>: Archivo no tiene la estructura esperada, corrija antes de continuar.</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="alert-error">❌ <b>{archivo_dt_principal.name}</b>: Archivo no tiene la estructura esperada, corrija antes de continuar.</div>', unsafe_allow_html=True)
                 st.stop()
 
-            barra.progress(25, text="Validando columnas LRE...")
-            # Validar columnas contra LRE_COLUMNAS
+            barra.progress(20, text="Cargando archivos históricos...")
+            # Cargar histórico de CSVs (meses anteriores)
+            historico_dfs = {}
+            for fecha_hist, f_hist in historico_archivos.items():
+                try:
+                    f_hist.seek(0)
+                    df_hist = leer_csv_dt(f_hist)
+                    historico_dfs[fecha_hist] = df_hist
+                except Exception as e_hist:
+                    st.markdown(
+                        f'<div class="alert-warning">⚠️ No se pudo cargar el histórico <b>{f_hist.name}</b>: {e_hist}</div>',
+                        unsafe_allow_html=True
+                    )
+
+            barra.progress(30, text="Validando columnas LRE...")
             diferencias_cols, desconocidas_cols = validar_columnas_lre(df_dt)
             if diferencias_cols or desconocidas_cols:
                 mostrar_aviso_columnas(diferencias_cols, desconocidas_cols)
 
             barra.progress(40, text="Leyendo empleados y empresas...")
-            # Leer empleados
             df_empleados = cargar_empleados(archivo_empleados)
 
-            # ── Validar estructura de listado_empleados ──
             ok_emp, faltantes_emp = validar_estructura(df_empleados, ["Rut", "Empresa", "Contrato"])
             if not ok_emp:
                 barra.empty()
                 st.markdown(f'<div class="alert-error">❌ <b>{archivo_empleados.name}</b>: Archivo no tiene la estructura esperada, corrija antes de continuar.</div>', unsafe_allow_html=True)
                 st.stop()
 
-            # Leer empresas
             df_empresas_periodo = pd.read_excel(archivo_empresas, header=1)
             df_empresas_periodo.columns = [str(c).strip() for c in df_empresas_periodo.columns]
             if "Nombre" in df_empresas_periodo.columns:
@@ -1372,7 +1545,6 @@ def render_modulo_dt(refs_compartidas):
             if "Empresa" in df_empresas_periodo.columns:
                 df_empresas_periodo["Empresa"] = df_empresas_periodo["Empresa"].astype(str).str.strip()
 
-            # ── Validar estructura de listado_empresas ──
             ok_emp2, faltantes_emp2 = validar_estructura(df_empresas_periodo, ["Nombre", "Empresa", "Cotización Mutual"])
             if not ok_emp2:
                 barra.empty()
@@ -1380,17 +1552,14 @@ def render_modulo_dt(refs_compartidas):
                 st.stop()
 
             barra.progress(55, text="Leyendo parámetros mensuales...")
-            # Leer parámetros mensuales
             df_params_periodo = pd.read_excel(archivo_params_dt)
 
-            # ── Validar estructura de parámetros mensuales ──
             ok_par, faltantes_par = validar_estructura(df_params_periodo, ["mes_Proc", "topeSalud_pesos", "topeImp_pesos_afp", "topeCes_pesos", "sis"])
             if not ok_par:
                 barra.empty()
                 st.markdown(f'<div class="alert-error">❌ <b>{archivo_params_dt.name}</b>: Archivo no tiene la estructura esperada, corrija antes de continuar.</div>', unsafe_allow_html=True)
                 st.stop()
 
-            # Verificar que el mes existe en los parámetros
             if "mes_Proc" in df_params_periodo.columns:
                 df_params_periodo["mes_Proc"] = df_params_periodo["mes_Proc"].astype(str).str.strip()
                 if fecha_proceso not in df_params_periodo["mes_Proc"].values:
@@ -1406,23 +1575,21 @@ def render_modulo_dt(refs_compartidas):
                 archivo_equiv_dt.seek(0)
                 refs_dt["equiv_conceptos"] = pd.read_excel(archivo_equiv_dt)
 
-            # Verificar conceptos que no deben tener código LRE
             mostrar_alerta_conceptos_prohibidos_dt(
                 verificar_conceptos_prohibidos_dt(refs_dt.get("equiv_conceptos", pd.DataFrame()))
             )
 
             barra.progress(70, text="Validando cuadraturas...")
-            # Ejecutar validaciones de cuadratura
-            errores_val = validar_cuadraturas_dt(df_dt, archivo_dt.name)
+            errores_val = validar_cuadraturas_dt(df_dt, archivo_dt_principal.name)
 
         except Exception as e:
             barra.empty()
             st.markdown(f'<div class="alert-error">❌ Error al leer los archivos: <b>{e}</b></div>', unsafe_allow_html=True)
             return
+
         st.markdown('<hr class="rex-divider">', unsafe_allow_html=True)
         st.markdown("### 🔍 Resultado de validaciones")
 
-        # ── Mostrar errores de validación si hay ──
         if errores_val:
             st.markdown(f"""
             <div class="alert-error">
@@ -1451,16 +1618,19 @@ def render_modulo_dt(refs_compartidas):
             Los registros cuadran sin diferencias.
         </div>""", unsafe_allow_html=True)
 
-        # ── Generar archivo de salida ──
         barra.progress(72, text="Generando registros de salida...")
         try:
-            df_salida, df_salida_sin_contrato, df_log_contratos = generar_filas_dt(df_dt, fecha_proceso, refs_dt, df_empleados, df_empresas_externo=df_empresas_periodo)
+            df_salida, df_salida_sin_contrato, df_log_contratos, log_parcial7_rows = generar_filas_dt(
+                df_dt, fecha_proceso, refs_dt, df_empleados,
+                df_empresas_externo=df_empresas_periodo,
+                historico_dfs=historico_dfs
+            )
         except Exception as e:
             barra.empty()
             st.markdown(f'<div class="alert-error">❌ Error al generar el archivo de salida: <b>{e}</b></div>', unsafe_allow_html=True)
             return
 
-        # ── Mostrar log de problemas de contrato si hay ──
+        # ── Log de problemas de contrato ──
         if not df_log_contratos.empty:
             st.markdown(f"""
             <div class="alert-warning">
@@ -1479,6 +1649,27 @@ def render_modulo_dt(refs_compartidas):
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 key="dt_btn_log_contratos"
             )
+
+        # ── Log Parcial 7 ──
+        if log_parcial7_rows:
+            st.markdown(f"""
+            <div class="alert-warning">
+                ⚠️ <b>{len(log_parcial7_rows)} trabajador(es)</b> con concepto mutual/sis no tienen imponible histórico sin licencia (Parcial 7 en blanco).<br>
+                Descarga el log y completa la columna <b>Parcial 7</b> manualmente para estos casos.
+            </div>""", unsafe_allow_html=True)
+
+            with st.expander(f"👁️ Ver trabajadores sin imponible histórico ({len(log_parcial7_rows)})"):
+                st.dataframe(pd.DataFrame(log_parcial7_rows), use_container_width=True, hide_index=True)
+
+            log_p7_bytes = generar_excel_log_parcial7(log_parcial7_rows)
+            if log_p7_bytes:
+                st.download_button(
+                    label="⬇️ Descargar log_parcial7_sin_imponible.xlsx",
+                    data=log_p7_bytes,
+                    file_name=f"log_parcial7_{fecha_proceso}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key="dt_btn_log_parcial7"
+                )
 
         if df_salida.empty:
             st.markdown('<div class="alert-warning">⚠️ No se generaron registros. Verifica que el archivo y los parámetros sean correctos.</div>', unsafe_allow_html=True)
