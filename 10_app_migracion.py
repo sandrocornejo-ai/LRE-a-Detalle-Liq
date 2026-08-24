@@ -304,7 +304,7 @@ CONCEPTOS_SIN_LRE = {
 # CONSTANTES PARÁMETROS MENSUALES
 # ─────────────────────────────────────────────
 ARCHIVO_PARAMS = os.path.join(DATA_DIR, "parametrosMesuales.xlsx")
-HOJA_PARAMS = "Hoja2"
+HOJA_PARAMS = "Hoja1"
 LABELS_PARAMS = {
     "mes_Proc":           "Mes de proceso (aaaa-mm)",
     "uf_Mes":             "UF del mes ($)",
@@ -402,7 +402,11 @@ def cargar_referencias():
 
 @st.cache_data(ttl=0)
 def cargar_params():
-    df = pd.read_excel(ARCHIVO_PARAMS, sheet_name=HOJA_PARAMS, dtype={"mes_Proc": str})
+    try:
+        df = pd.read_excel(ARCHIVO_PARAMS, sheet_name=HOJA_PARAMS, dtype={"mes_Proc": str})
+    except Exception:
+        # Fallback: leer la primera hoja si el nombre no coincide
+        df = pd.read_excel(ARCHIVO_PARAMS, sheet_name=0, dtype={"mes_Proc": str})
     df["mes_Proc"] = df["mes_Proc"].astype(str).str.strip()
     return df
 
