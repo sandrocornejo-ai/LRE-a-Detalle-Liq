@@ -293,6 +293,13 @@ GRUPOS_CES_AFECTO = {
     "reliquidaCesCi", "cesAporteSol", "reliquidaCesSol"
 }
 
+# Conceptos que NO deben tener código LRE asignado en equiv_conceptos
+CONCEPTOS_SIN_LRE = {
+    "cajaComp", "reliquidaCcaf", "aporteAFPemp", "reliquidaAporteAFP",
+    "aporteFAPPCEV", "reliquidaAporteCEV", "aporteFAPPBAC", "reliquidaAporteBAC",
+    "aportesegurocovid",
+}
+
 # ─────────────────────────────────────────────
 # CONSTANTES PARÁMETROS MENSUALES
 # ─────────────────────────────────────────────
@@ -321,6 +328,55 @@ LABELS_PARAMS = {
 }
 
 # ─────────────────────────────────────────────
+# VALIDACIÓN DE CONCEPTOS PROHIBIDOS EN EQUIV
+# ─────────────────────────────────────────────
+def verificar_conceptos_prohibidos(equiv_df):
+    """
+    Revisa si alguno de los conceptos que NO deben tener código LRE
+    aparece en equiv_conceptos con un cod_lre asignado.
+    Retorna lista de dicts {Concepto, Código LRE asignado}.
+    """
+    if equiv_df is None or equiv_df.empty:
+        return []
+    if "concepto_detalle" not in equiv_df.columns or "cod_lre" not in equiv_df.columns:
+        return []
+    hallazgos = []
+    for _, row in equiv_df.iterrows():
+        concepto = str(row["concepto_detalle"]).strip()
+        cod_lre  = str(row["cod_lre"]).strip()
+        if concepto in CONCEPTOS_SIN_LRE and cod_lre and cod_lre.lower() != "nan":
+            hallazgos.append({"Concepto": concepto, "Código LRE asignado": cod_lre})
+    return hallazgos
+
+def mostrar_alerta_conceptos_prohibidos(hallazgos):
+    """Muestra en pantalla la advertencia cuando hay conceptos con código LRE no permitido."""
+    if not hallazgos:
+        return
+    filas_html = "".join(
+        f"<tr>"
+        f"<td style='padding:4px 14px;font-weight:600;color:#744210'>{h['Concepto']}</td>"
+        f"<td style='padding:4px 14px;color:#744210'>{h['Código LRE asignado']}</td>"
+        f"</tr>"
+        for h in hallazgos
+    )
+    st.markdown(f"""
+    <div class="alert-warning">
+        ⚠️ <b>¡Atención! {len(hallazgos)} concepto(s) tienen un código LRE asignado pero NO deberían tenerlo.</b><br>
+        Por favor elimina esa relación en el archivo <b>equiv_conceptos.xlsx</b> antes de continuar:
+        <table style='margin-top:10px;border-collapse:collapse;width:auto'>
+            <thead>
+                <tr>
+                    <th style='padding:4px 14px;text-align:left;border-bottom:2px solid #d69e2e;color:#744210'>Concepto</th>
+                    <th style='padding:4px 14px;text-align:left;border-bottom:2px solid #d69e2e;color:#744210'>Código LRE asignado</th>
+                </tr>
+            </thead>
+            <tbody>{filas_html}</tbody>
+        </table>
+    </div>
+    """, unsafe_allow_html=True)
+
+
+# ─────────────────────────────────────────────
 # FUNCIONES DE CARGA DE REFERENCIAS
 # ─────────────────────────────────────────────
 @st.cache_data
@@ -328,7 +384,6 @@ def cargar_referencias():
     refs = {}
     archivos = {
         "equiv_conceptos": "equiv_conceptos.xlsx",
-        "listado_empresas": "listado_empresas.xlsx",
         "inst_mutuales": "inst_mutuales.xlsx",
         "inst_cajas": "inst_cajas.xlsx",
         "inst_afp": "inst_afp.xlsx",
@@ -965,12 +1020,54 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ── NAVEGACIÓN PRINCIPAL ──
-nav_dt, nav_migracion = st.tabs(["🏛️ Migración archivo descargado desde DT", "📂 Migración desde archivo base LRE de Rex"])
+nav_dt, nav_migracion, nav_params = st.tabs([
+    "🏛️ Migración archivo descargado desde DT",
+    "📂 Migración desde archivo base LRE de Rex",
+    "⚙️ Parámetros mensuales"
+])
 
 # Cargar referencias compartidas (disponibles para todos los tabs)
 refs, errores_refs = cargar_referencias()
 if errores_refs:
     st.markdown(f'<div class="alert-warning">⚠️ Archivos de referencia no encontrados en <b>/data</b>: {", ".join(errores_refs)}</div>', unsafe_allow_html=True)
+
+# ── Carga opcional de equivalencia de conceptos ──
+with st.expander("⚙️ Equivalencia de conceptos de la base", expanded=False):
+    cargar_equiv_manual = st.checkbox(
+        "¿Deseas cargar los conceptos de la base desde un archivo?",
+        key="chk_equiv_conceptos",
+        value=False,
+        help="Activa esta opción para subir manualmente el archivo equiv_conceptos.xlsx."
+    )
+    if cargar_equiv_manual:
+        col_eq, _ = st.columns([1, 1])
+        with col_eq:
+            archivo_equiv = st.file_uploader(
+                "Sube el archivo equiv_conceptos.xlsx",
+                type=["xlsx"],
+                key="up_equiv_conceptos",
+                help="Archivo con la equivalencia de conceptos LRE → concepto Rex+."
+            )
+        if archivo_equiv:
+            refs["equiv_conceptos"] = pd.read_excel(archivo_equiv)
+            st.markdown(
+                f'<div class="alert-success">✅ Conceptos cargados desde archivo: <b>{archivo_equiv.name}</b> — {len(refs["equiv_conceptos"])} conceptos.</div>',
+                unsafe_allow_html=True
+            )
+            mostrar_alerta_conceptos_prohibidos(verificar_conceptos_prohibidos(refs["equiv_conceptos"]))
+        else:
+            st.markdown(
+                '<div class="alert-warning">⚠️ Sube el archivo <b>equiv_conceptos.xlsx</b> para usar una equivalencia personalizada.</div>',
+                unsafe_allow_html=True
+            )
+    else:
+        if "equiv_conceptos" in refs and not refs["equiv_conceptos"].empty:
+            n = len(refs["equiv_conceptos"])
+            st.markdown(
+                f'<div class="alert-success">✅ Usando conceptos del servidor ({n} conceptos cargados).</div>',
+                unsafe_allow_html=True
+            )
+            mostrar_alerta_conceptos_prohibidos(verificar_conceptos_prohibidos(refs["equiv_conceptos"]))
 
 with nav_migracion:
     st.markdown('<div class="section-title">📂 Migración desde archivo base LRE de Rex</div>', unsafe_allow_html=True)
@@ -1026,20 +1123,36 @@ with nav_migracion:
         else:
             st.markdown('<div class="alert-warning">⚠️ Requerido solo para archivos LRE estándar. Los archivos exportados desde Rex+ no lo necesitan.</div>', unsafe_allow_html=True)
 
-    col_up3, _ = st.columns([1, 1])
+    col_up3, col_up4 = st.columns(2)
     with col_up3:
+        st.markdown("#### 🏢 Listado de empresas del período")
+        archivo_empresas_lre = st.file_uploader(
+            "Sube el archivo listado_empresas.xlsx del período",
+            type=["xlsx"],
+            accept_multiple_files=False,
+            key="up_empresas_lre",
+            help="Requerido para resolver empresa e institución mutual."
+        )
+        if archivo_empresas_lre:
+            st.markdown(f'<div class="alert-success">✅ Listado de empresas cargado: <b>{archivo_empresas_lre.name}</b></div>', unsafe_allow_html=True)
+        else:
+            st.markdown('<div class="alert-warning">⚠️ Requerido para resolver empresa e institución mutual.</div>', unsafe_allow_html=True)
+
+    with col_up4:
         st.markdown("#### 📅 Parámetros mensuales")
         archivo_params = st.file_uploader(
-            "Sube el archivo parametrosMensuales.xlsx",
+            "Sube el archivo parametrosMesuales.xlsx",
             type=["xlsx"],
             accept_multiple_files=False,
             key="up_params",
-            help="Requerido siempre. Contiene los parámetros del mes a procesar."
+            help="Si subes un archivo, actualizará automáticamente el servidor. Si no subes nada, se usará la versión guardada en el servidor."
         )
         if archivo_params:
-            st.markdown(f'<div class="alert-success">✅ Parámetros cargados: <b>{archivo_params.name}</b></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="alert-success">✅ Parámetros cargados desde archivo: <b>{archivo_params.name}</b> — se actualizará el servidor.</div>', unsafe_allow_html=True)
+        elif refs.get("parametros") is not None and not refs.get("parametros", pd.DataFrame()).empty:
+            st.markdown('<div class="alert-success">✅ Usando parámetros del servidor. Puedes subir una versión actualizada aquí.</div>', unsafe_allow_html=True)
         else:
-            st.markdown('<div class="alert-error">❌ Debes subir el archivo parametrosMensuales.xlsx para continuar.</div>', unsafe_allow_html=True)
+            st.markdown('<div class="alert-error">❌ No hay parámetros disponibles. Súbelos aquí o agrégalos en la pestaña <b>⚙️ Parámetros mensuales</b>.</div>', unsafe_allow_html=True)
 
     if archivos:
         st.markdown(f'<div class="alert-success">✅ {len(archivos)} archivo(s) cargado(s): {", ".join([f.name for f in archivos])}</div>', unsafe_allow_html=True)
@@ -1076,23 +1189,46 @@ with nav_migracion:
             primer_archivo.seek(0)
             es_rexplus = detectar_formato_rexplus(df_muestra)
 
-            if not archivo_params:
-                st.markdown('<div class="alert-error">❌ Debes subir el archivo parametrosMensuales.xlsx para continuar.</div>', unsafe_allow_html=True)
-                st.stop()
-            try:
-                df_params = pd.read_excel(archivo_params, sheet_name="Hoja2", dtype={"mes_Proc": str})
-            except Exception:
-                archivo_params.seek(0)
-                df_params = pd.read_excel(archivo_params, sheet_name=0, dtype={"mes_Proc": str})
-            if "mes_Proc" not in df_params.columns:
+            if archivo_params:
+                try:
+                    df_params = pd.read_excel(archivo_params, sheet_name="Hoja2", dtype={"mes_Proc": str})
+                except Exception:
+                    archivo_params.seek(0)
+                    df_params = pd.read_excel(archivo_params, sheet_name=0, dtype={"mes_Proc": str})
+                if "mes_Proc" not in df_params.columns:
+                    st.markdown(
+                        '<div class="alert-error">❌ El archivo de parámetros no contiene la columna <b>mes_Proc</b>. '
+                        'Verifica que estás subiendo <b>parametrosMesuales.xlsx</b> y que la hoja correcta tiene esa columna.</div>',
+                        unsafe_allow_html=True
+                    )
+                    st.stop()
+                df_params["mes_Proc"] = df_params["mes_Proc"].astype(str).str.strip()
+                refs["parametros"] = df_params
+                # Auto-guardar en data/ para que quede disponible en futuras sesiones
+                try:
+                    archivo_params.seek(0)
+                    ruta_dest = os.path.join(DATA_DIR, "parametrosMesuales.xlsx")
+                    with open(ruta_dest, "wb") as f_dest:
+                        f_dest.write(archivo_params.read())
+                    st.cache_data.clear()
+                    st.markdown('<div class="alert-success">✅ Parámetros guardados en el servidor — disponibles para próximas sesiones.</div>', unsafe_allow_html=True)
+                except Exception as e:
+                    st.markdown(f'<div class="alert-warning">⚠️ No se pudo guardar en servidor: {e}</div>', unsafe_allow_html=True)
+            elif refs.get("parametros") is not None and not refs.get("parametros", pd.DataFrame()).empty:
+                df_params = refs["parametros"]
+                # refs["parametros"] ya está cargado desde data/
+            else:
                 st.markdown(
-                    '<div class="alert-error">❌ El archivo de parámetros no contiene la columna <b>mes_Proc</b>. '
-                    'Verifica que estás subiendo <b>parametrosMensuales.xlsx</b> y que la hoja correcta tiene esa columna.</div>',
+                    '<div class="alert-error">❌ No hay parámetros disponibles. Súbelos aquí o agrégalos en la pestaña <b>⚙️ Parámetros mensuales</b>.</div>',
                     unsafe_allow_html=True
                 )
                 st.stop()
-            df_params["mes_Proc"] = df_params["mes_Proc"].astype(str).str.strip()
-            refs["parametros"] = df_params
+
+            # Cargar listado de empresas si fue subido
+            if archivo_empresas_lre:
+                df_empresas_lre = pd.read_excel(archivo_empresas_lre, header=1)
+                df_empresas_lre.columns = [str(c).strip() for c in df_empresas_lre.columns]
+                refs["listado_empresas"] = df_empresas_lre
 
             if es_rexplus:
                 st.markdown('<div class="alert-success">✅ Formato detectado: <b>Rex+</b>. Los datos de AFP, Isapre y Mutual se obtienen del propio archivo.</div>', unsafe_allow_html=True)
@@ -1268,4 +1404,7 @@ with nav_migracion:
 
 with nav_dt:
     render_modulo_dt(refs)
+
+with nav_params:
+    render_parametros()
 
